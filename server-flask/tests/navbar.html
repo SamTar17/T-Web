@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Movie Suggestions</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .search-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        #searchInput:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .suggestions-container {
+            position: relative;
+            margin-top: 10px;
+        }
+
+        .suggestions-list {
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .suggestion-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f5f5f5;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .suggestion-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .movie-poster {
+            width: 50px;
+            height: 75px;
+            object-fit: cover;
+            border-radius: 6px;
+            background-color: #e9ecef;
+            flex-shrink: 0;
+        }
+
+        .poster-placeholder {
+            width: 50px;
+            height: 75px;
+            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .movie-info {
+            flex: 1;
+            min-width: 0; /* Permette al testo di andare a capo se necessario */
+        }
+
+        .movie-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .movie-year {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .info-panel {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .endpoint-info {
+            font-family: 'Courier New', monospace;
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .status {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.loading {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .debug-info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Test Movie Suggestions API</h1>
+        
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="Inizia a digitare il nome di un film..." autocomplete="off">
+            
+            <div class="suggestions-container">
+                <div id="suggestionsList" class="suggestions-list"></div>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <h3>📡 Endpoint Configuration</h3>
+            <div class="endpoint-info">
+                <strong>URL:</strong> <span id="currentEndpoint">http://127.0.0.1:5000/api/movies/suggestions</span><br>
+                <strong>Method:</strong> GET<br>
+                <strong>Parameters:</strong> q (query string)<br>
+                <strong>Features:</strong> Autocomplete + Poster preview
+            </div>
+
+            <div id="statusIndicator" class="status">
+                💡 Digita almeno 2 caratteri per vedere i suggerimenti con poster
+            </div>
+
+            <div class="debug-info">
+                <strong>Last Request:</strong> <span id="lastRequest">-</span><br>
+                <strong>Response Time:</strong> <span id="responseTime">-</span><br>
+                <strong>Results Count:</strong> <span id="resultsCount">-</span><br>
+                <strong>Posters Loaded:</strong> <span id="postersLoaded">-</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configurazione API
+        const API_CONFIG = {
+            baseUrl: 'http://127.0.0.1:5000',  // Flask server
+            endpoint: '/api/movies/suggestions',
+            minQueryLength: 2,
+            debounceMs: 300  // Aspetta 300ms dopo l'ultimo keystroke
+        };
+
+        // Elementi DOM
+        const searchInput = document.getElementById('searchInput');
+        const suggestionsList = document.getElementById('suggestionsList');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const lastRequest = document.getElementById('lastRequest');
+        const responseTime = document.getElementById('responseTime');
+        const resultsCount = document.getElementById('resultsCount');
+        const currentEndpoint = document.getElementById('currentEndpoint');
+        const postersLoaded = document.getElementById('postersLoaded');
+
+        // Aggiorna l'URL mostrato
+        currentEndpoint.textContent = API_CONFIG.baseUrl + API_CONFIG.endpoint;
+
+        // Variabili per gestire il debouncing
+        let debounceTimer = null;
+        let requestStartTime = null;
+
+        // Event listener per l'input
+        searchInput.addEventListener('input', function(e) {
+            const query = e.target.value.trim();
+            
+            // Cancella timer precedente
+            if (debounceTimer) {
+                clearTimeout(debounceTimer);
+            }
+
+            // Nascondi suggerimenti se query troppo corta
+            if (query.length < API_CONFIG.minQueryLength) {
+                hideSuggestions();
+                updateStatus('💡 Digita almeno 2 caratteri per vedere i suggerimenti con poster', 'info');
+                return;
+            }
+
+            // Mostra stato di caricamento
+            updateStatus('🔄 Cercando...', 'loading');
+
+            // Imposta nuovo timer per debouncing
+            debounceTimer = setTimeout(() => {
+                searchMovies(query);
+            }, API_CONFIG.debounceMs);
+        });
+
+        // Funzione principale per la ricerca
+        async function searchMovies(query) {
+            try {
+                requestStartTime = Date.now();
+                lastRequest.textContent = `${API_CONFIG.baseUrl}${API_CONFIG.endpoint}?q=${encodeURIComponent(query)}`;
+
+                const response = await fetch(`${API_CONFIG.baseUrl}${API_CONFIG.endpoint}?q=${encodeURIComponent(query)}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const responseTimeMs = Date.now() - requestStartTime;
+                responseTime.textContent = `${responseTimeMs}ms`;
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    displaySuggestions(data.suggestions);
+                    resultsCount.textContent = data.count;
+                    updateStatus(`✅ Trovati ${data.count} risultati`, 'success');
+                } else {
+                    throw new Error(data.error || 'Errore sconosciuto');
+                }
+
+            } catch (error) {
+                console.error('Errore durante la ricerca:', error);
+                hideSuggestions();
+                resultsCount.textContent = '0';
+                updateStatus(`❌ Errore: ${error.message}`, 'error');
+            }
+        }
+
+        // Mostra i suggerimenti
+        function displaySuggestions(suggestions) {
+            suggestionsList.innerHTML = '';
+            let postersWithUrls = 0;
+
+            if (suggestions.length === 0) {
+                suggestionsList.innerHTML = '<div class="suggestion-item"><div class="movie-info">Nessun risultato trovato</div></div>';
+                resetPosterCount(0);
+            } else {
+                // Conta quanti film hanno URL poster validi
+                postersWithUrls = suggestions.filter(movie => movie.poster_url && movie.poster_url.trim() !== '').length;
+                resetPosterCount(postersWithUrls);
+
+                suggestions.forEach(movie => {
+                    const suggestionElement = document.createElement('div');
+                    suggestionElement.className = 'suggestion-item';
+                    
+                    // Crea elemento poster o placeholder
+                    let posterElement = '';
+                    if (movie.poster_url && movie.poster_url.trim() !== '') {
+                        posterElement = `
+                            <img class="movie-poster" 
+                                 src="${escapeHtml(movie.poster_url)}" 
+                                 alt="Poster di ${escapeHtml(movie.title)}"
+                                 onload="updatePosterCount(true)"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'; updatePosterCount(false);">
+                            <div class="poster-placeholder" style="display: none;">🎬</div>
+                        `;
+                    } else {
+                        posterElement = '<div class="poster-placeholder">🎬</div>';
+                    }
+                    
+                    suggestionElement.innerHTML = `
+                        ${posterElement}
+                        <div class="movie-info">
+                            <div class="movie-title">${escapeHtml(movie.title)}</div>
+                            <div class="movie-year">${movie.year ? movie.year : 'Anno non disponibile'} • ID: ${movie.id}</div>
+                        </div>
+                    `;
+                    
+                    // Gestisci click su suggerimento
+                    suggestionElement.addEventListener('click', () => {
+                        searchInput.value = movie.title;
+                        hideSuggestions();
+                        updateStatus(`📌 Selezionato: ${movie.title}`, 'success');
+                    });
+
+                    suggestionsList.appendChild(suggestionElement);
+                });
+            }
+
+            suggestionsList.style.display = 'block';
+        }
+
+        // Funzione globale per aggiornare il conteggio poster caricati
+        let loadedPosters = 0;
+        let totalPostersToLoad = 0;
+
+        function updatePosterCount(success) {
+            if (success) {
+                loadedPosters++;
+            }
+            postersLoaded.textContent = `${loadedPosters}/${totalPostersToLoad}`;
+        }
+
+        // Reset contatori quando inizia una nuova ricerca
+        function resetPosterCount(total) {
+            loadedPosters = 0;
+            totalPostersToLoad = total;
+            postersLoaded.textContent = `0/${total}`;
+        }
+
+        // Nascondi suggerimenti
+        function hideSuggestions() {
+            suggestionsList.style.display = 'none';
+            resetPosterCount(0);
+        }
+
+        // Aggiorna indicatore di stato
+        function updateStatus(message, type) {
+            statusIndicator.textContent = message;
+            statusIndicator.className = `status ${type}`;
+        }
+
+        // Utility per escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Nascondi suggerimenti quando si clicca fuori
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.search-container')) {
+                hideSuggestions();
+            }
+        });
+
+        // Test di connessione al caricamento
+        window.addEventListener('load', async function() {
+            try {
+                const response = await fetch(`${API_CONFIG.baseUrl}/api/movies/suggestions?q=test`);
+                if (response.ok) {
+                    updateStatus('✅ Connessione API attiva - Poster supportati', 'success');
+                } else {
+                    updateStatus('⚠️ Server raggiungibile ma API non risponde correttamente', 'error');
+                }
+            } catch (error) {
+                updateStatus('❌ Impossibile connettersi al server Flask (127.0.0.1:5000)', 'error');
+            }
+        });
+    </script>
+</body>
+</html>

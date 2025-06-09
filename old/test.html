@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <title>socket.io_test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <div class="container">
+        <h1> socket.io test</h1>
+        
+        <div id="status" class="status disconnected">
+            disconnesso
+        </div>
+
+        <button onclick="connectToServer()">🔌 Connetti</button>
+        <button onclick="disconnectFromServer()">❌ Disconnetti</button>
+
+        <div style="margin: 20px 0; border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
+            <h3>🏠 Stanze Attive</h3>
+
+
+            <div style="margin: 20px 0; border: 1px solid #ddd; padding: 15px; border-radius: 5px; background: #f8f9fa;">
+                <h3>➕ Crea Nuova Stanza</h3>
+        
+                <div style="margin: 10px 0;">
+                    <label>👤 Il tuo nickname:</label><br>
+                    <input type="text" id="createUserName" placeholder="Es: Mario123" style="width: 200px; margin: 5px 0;">
+                </div>
+        
+                <div style="margin: 10px 0;">
+                    <label>🏠 Nome della stanza:</label><br>
+                    <input type="text" id="createRoomName" placeholder="Es: Film di Nolan" style="width: 200px; margin: 5px 0;">
+                </div>
+        
+                <div style="margin: 10px 0;">
+                    <label>💭 Argomento discussione:</label><br>
+                    <select id="createRoomTopic" style="width: 200px; margin: 5px 0;">
+                        <option value="">Seleziona argomento...</option>
+                        <option value="registi">Registi e Stili</option>
+                        <option value="attori">Attori e Performance</option>
+                        <option value="generi">Generi Cinematografici</option>
+                        <option value="anni">Film per Decade</option>
+                        <option value="oscar">Premi e Riconoscimenti</option>
+                        <option value="generale">Discussione Generale</option>
+                    </select>
+                </div>
+        
+                <button onclick="createNewRoom()" style="background: #28a745;">
+                    🎬 Crea e Entra nella Stanza
+                </button>
+            </div>
+
+            <button onclick="loadActiveRooms()">🔄 Aggiorna Lista</button>
+            <div id="roomsList"></div>
+    </div>
+
+
+
+        <div class="entry_text">
+            <input type="text" id="messageInput" placeholder="Scrivere un messaggio">
+            <button onclick="sendRoomMessage()"> invia messaggio </button>
+        </div>
+
+        <h3> Messaggi ricevuti </h3>
+        <div id="messages"></div>
+
+        <h3>🔍 Dettagli Connessione:</h3>
+        <div id="connectionDetails"></div>
+    </div>     
+    <script src="script.js"></script>
+</body>
+</html>

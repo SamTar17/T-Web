@@ -1,0 +1,87 @@
+# === ENVIRONMENT FILES ===
+**/.env
+**/.env.local
+**/.env.*.local
+**/config.local.*
+
+# === NODE.JS ===
+**/node_modules/
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/.npm
+**/.eslintcache
+**/dist/
+**/build/
+
+# === PYTHON ===
+**/venv/
+**/env/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.Python
+**/pip-log.txt
+**/pip-delete-this-directory.txt
+**/.coverage
+**/.pytest_cache/
+
+# === DATABASE FILES ===
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/*.sql.backup
+**/dumps/
+**/backup/
+
+# === LARGE DATA FILES ===
+# Se i file CSV sono grandi (>10MB), considera Git LFS
+**/data/
+**/data_clean/
+**/*.csv.backup
+# Commenta la riga sotto se vuoi includere i CSV puliti nel repo
+# **/data_clean/*.csv
+
+# === LOG FILES ===
+**/*.log
+**/logs/
+**/log/
+
+# === TEMPORARY FILES ===
+**/tmp/
+**/temp/
+**/.tmp/
+**/*.tmp
+**/*.swp
+**/*.swo
+**/*~
+
+# === CACHE DIRECTORIES ===
+**/.cache/
+**/cache/
+**/.sass-cache/
+
+# === IDE FILES ===
+**/.vscode/
+**/.idea/
+**/*.iml
+**/.project
+**/.classpath
+
+# === OS FILES ===
+**/.DS_Store
+**/Thumbs.db
+**/Desktop.ini
+
+# === SECURITY ===
+**/private_keys/
+**/certificates/
+**/*.pem
+**/*.key
+**/*.crt
+
+# === PACKAGE MANAGER LOCK FILES (optional) ===
+# Decommentare se vuoi ignorare i lock files
+# **/package-lock.json
+# **/yarn.lock

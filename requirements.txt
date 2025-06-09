@@ -1,0 +1,12 @@
+Flask
+Flask-SQLAlchemy
+psycopg2-binary
+python-dotenv
+Flask-CORS
+pandas
+numpy
+jupyter
+unidecode
+pathlib 
+python-dotenv
+pymongo

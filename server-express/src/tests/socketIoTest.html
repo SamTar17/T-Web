@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Client - Film Chat System</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 Film Chat System - Test Client</h1>
+            <p>Client di test per verificare la comunicazione Socket.io con il server Express</p>
+        </div>
+
+        <!-- Status Panel -->
+        <div id="statusPanel" class="status-panel status-disconnected">
+            <h3>📡 Stato Connessione</h3>
+            <p><strong>Status:</strong> <span id="connectionStatus">Disconnesso</span> 
+               <span id="statusBadge" class="badge badge-danger">OFFLINE</span></p>
+            <p><strong>Socket ID:</strong> <span id="socketId">N/A</span></p>
+            <p><strong>Server:</strong> http://localhost:3000</p>
+            <button id="connectBtn" onclick="connectToServer()">🔌 Connetti al Server</button>
+            <button id="disconnectBtn" onclick="disconnectFromServer()" disabled>❌ Disconnetti</button>
+        </div>
+
+        <div class="grid">
+            <!-- Test Creazione Room -->
+            <div class="test-section">
+                <h3>🏠 Test Creazione Room</h3>
+                <div class="form-group">
+                    <label for="createRoomName">Nome Room:</label>
+                    <input type="text" id="createRoomName" placeholder="es: interstellar-discussion" value="test-room-1">
+                </div>
+                <div class="form-group">
+                    <label for="createUserName">Username:</label>
+                    <input type="text" id="createUserName" placeholder="es: CinemaFan2024" value="TestUser1">
+                </div>
+                <div class="form-group">
+                    <label for="roomTopic">Argomento Room:</label>
+                    <input type="text" id="roomTopic" placeholder="es: Discussione su Interstellar" value="Test Room per Chat">
+                </div>
+                <button id="createRoomBtn" onclick="createRoom()" disabled>➕ Crea Room</button>
+            </div>
+
+            <!-- Test Join Room -->
+            <div class="test-section">
+                <h3>🚪 Test Join Room</h3>
+                <div class="form-group">
+                    <label for="joinRoomName">Nome Room da Joinare:</label>
+                    <input type="text" id="joinRoomName" placeholder="es: interstellar-discussion" value="test-room-1">
+                </div>
+                <div class="form-group">
+                    <label for="joinUserName">Username:</label>
+                    <input type="text" id="joinUserName" placeholder="es: MovieLover89" value="TestUser2">
+                </div>
+                <button id="joinRoomBtn" onclick="joinRoom()" disabled>🏠 Entra in Room</button>
+            </div>
+        </div>
+
+        <!-- Test Messaggi -->
+        <div class="test-section">
+            <h3>💬 Test Invio Messaggi</h3>
+            <div class="form-group">
+                <label for="messageRoomName">Room per Messaggio:</label>
+                <input type="text" id="messageRoomName" placeholder="Nome room" value="test-room-1">
+            </div>
+            <div class="form-group">
+                <label for="messageUserName">Username:</label>
+                <input type="text" id="messageUserName" placeholder="Il tuo username" value="TestUser1">
+            </div>
+            <div class="form-group">
+                <label for="messageText">Messaggio:</label>
+                <textarea id="messageText" rows="3" placeholder="Scrivi il tuo messaggio...">Ciao! Questo è un messaggio di test per verificare il sistema di chat.</textarea>
+            </div>
+            <button id="sendMessageBtn" onclick="sendMessage()" disabled>📤 Invia Messaggio</button>
+            <button onclick="sendTestMessages()">🔄 Invia Messaggi di Test</button>
+        </div>
+
+        <!-- Log Area -->
+        <div class="test-section">
+            <h3>📊 Log Eventi Real-time</h3>
+            <button onclick="clearLog()">🗑️ Pulisci Log</button>
+            <button onclick="exportLog()">💾 Esporta Log</button>
+            <div id="logArea" class="log-area">
+                <div class="log-entry log-info">[INFO] Client di test inizializzato - pronto per la connessione</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Socket.io Client Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.js"></script>
+    
+    <script src="./script.js"></script>
+</body>
+</html>
