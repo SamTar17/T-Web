@@ -10,6 +10,7 @@ const ChatHandler = require("./services/ChatHandler");
 const errorHandler = require("./middleware/errorHandler");
 const { router: debugRoutes, setConnectionManager } = require("./routes/debug");
 const movieRoutes = require("./routes/movies");
+const gracefulShutdown =  require("./utils/gracefulShutdown");
 
 //================================================
 
@@ -48,9 +49,6 @@ app.use(errorHandler);
 
 console.log("🚀 Avvio ServiceHealthMonitor...");
 healthMonitor.start();
-
-const gracefulShutdown =  require("./utils/gracefulShutdown");
-
 
 process.on("SIGINT", () => gracefulShutdown(server, io, healthMonitor));
 process.on("SIGTERM",() => gracefulShutdown(server, io, healthMonitor));
