@@ -47,66 +47,66 @@ class PostgreSQLSetup:
                     );"""
                 actors_table= """CREATE TABLE IF NOT EXISTS actors (
                         id SERIAL PRIMARY KEY,
-                        id_movies INTEGER,
+                        id_movie INTEGER,
                         actor TEXT,
                         role TEXT,
-                        FOREIGN KEY (id_movies) REFERENCES movies(id)
+                        FOREIGN KEY (id_movie) REFERENCES movies(id)
                     );"""
                 countries_table = """CREATE TABLE IF NOT EXISTS countries (
                         id SERIAL PRIMARY KEY,
-                        id_movies INTEGER,
+                        id_movie INTEGER,
                         country TEXT,
-                        FOREIGN KEY (id_movies) REFERENCES movies(id)
+                        FOREIGN KEY (id_movie) REFERENCES movies(id)
                     );"""
                 crews_table = """CREATE TABLE IF NOT EXISTS crews (
                         id SERIAL PRIMARY KEY,
-                        id_movies INTEGER,
+                        id_movie INTEGER,
                         role TEXT,
                         name TEXT,
-                        FOREIGN KEY (id_movies) REFERENCES movies(id)
+                        FOREIGN KEY (id_movie) REFERENCES movies(id)
                     );"""         
                 genres_table = """CREATE TABLE IF NOT EXISTS genres (
                         id SERIAL PRIMARY KEY,
-                        id_movies INTEGER,
+                        id_movie INTEGER,
                         genre TEXT,
-                        FOREIGN KEY (id_movies) REFERENCES movies(id)
+                        FOREIGN KEY (id_movie) REFERENCES movies(id)
                     );""" 
                     
                 languages_table = """CREATE TABLE IF NOT EXISTS languages (
                         id SERIAL PRIMARY KEY,
-                        id_movies INTEGER,
+                        id_movie INTEGER,
                         type TEXT,
                         language TEXT,
-                        FOREIGN KEY (id_movies) REFERENCES movies(id)
+                        FOREIGN KEY (id_movie) REFERENCES movies(id)
                     );""" 
                     
                 posters_table = """CREATE TABLE IF NOT EXISTS posters (
                         id SERIAL PRIMARY KEY,
-                        id_movies INTEGER,
+                        id_movie INTEGER,
                         link TEXT,
-                        FOREIGN KEY (id_movies) REFERENCES movies(id)
+                        FOREIGN KEY (id_movie) REFERENCES movies(id)
                     );""" 
                 releases_table = """CREATE TABLE IF NOT EXISTS releases (
                         id SERIAL PRIMARY KEY,
-                        id_movies INTEGER,
+                        id_movie INTEGER,
                         country TEXT,
                         date DATE,
                         type TEXT,
                         rating TEXT,
-                        FOREIGN KEY (id_movies) REFERENCES movies(id)
+                        FOREIGN KEY (id_movie) REFERENCES movies(id)
                     );""" 
                     
                 studios_table = """CREATE TABLE IF NOT EXISTS studios (
                         id SERIAL PRIMARY KEY,
-                        id_movies INTEGER,
+                        id_movie INTEGER,
                         studio TEXT,
-                        FOREIGN KEY (id_movies) REFERENCES movies(id)
+                        FOREIGN KEY (id_movie) REFERENCES movies(id)
                     );""" 
                 themes_table = """CREATE TABLE IF NOT EXISTS themes (
                         id SERIAL PRIMARY KEY,
-                        id_movies INTEGER,
+                        id_movie INTEGER,
                         theme TEXT,
-                        FOREIGN KEY (id_movies) REFERENCES movies(id)
+                        FOREIGN KEY (id_movie) REFERENCES movies(id)
                     );"""
                 
                 oscar_table = """CREATE TABLE IF NOT EXISTS oscars (
@@ -118,8 +118,8 @@ class PostgreSQLSetup:
                         name TEXT,
                         film TEXT,
                         winner BOOL,
-                        id_movies INTEGER,
-                        FOREIGN KEY (id_movies) REFERENCES movies(id)
+                        id_movie INTEGER,
+                        FOREIGN KEY (id_movie) REFERENCES movies(id)
                     );"""
                 
                 curr.execute(movies_table)
@@ -145,16 +145,16 @@ class PostgreSQLSetup:
         
         csv_files = [
             ('movies.csv', 'movies', '(id, name, date, tagline, description, minute, rating)'),
-            ('actors.csv', 'actors', '(id_movies, actor, role)'),
-            ('countries.csv', 'countries', '(id_movies, country)'),
-            ('crew.csv', 'crews', '(id_movies, role, name)'),
-            ('genres.csv', 'genres', '(id_movies, genre)'),
-            ('languages.csv', 'languages', '(id_movies, type, language)'),
-            ('posters.csv', 'posters', '(id_movies, link)'),
-            ('releases.csv', 'releases', '(id_movies, country, date, type, rating)'),
-            ('studios.csv', 'studios', '(id_movies, studio)'),
-            ('themes.csv', 'themes', '(id_movies, theme)'),
-            ('the_oscar_awards.csv', 'oscars', '(year_film,year_ceremony,ceremony,category,name,film,winner,id_movies)')
+            ('actors.csv', 'actors', '(id_movie, actor, role)'),
+            ('countries.csv', 'countries', '(id_movie, country)'),
+            ('crew.csv', 'crews', '(id_movie, role, name)'),
+            ('genres.csv', 'genres', '(id_movie, genre)'),
+            ('languages.csv', 'languages', '(id_movie, type, language)'),
+            ('posters.csv', 'posters', '(id_movie, link)'),
+            ('releases.csv', 'releases', '(id_movie, country, date, type, rating)'),
+            ('studios.csv', 'studios', '(id_movie, studio)'),
+            ('themes.csv', 'themes', '(id_movie, theme)'),
+            ('the_oscar_awards.csv', 'oscars', '(year_film,year_ceremony,ceremony,category,name,film,winner,id_movie)')
         ]
         
         try:
@@ -203,39 +203,39 @@ class PostgreSQLSetup:
                     "CREATE INDEX IF NOT EXISTS idx_movies_name ON movies(name)",
                     "CREATE INDEX IF NOT EXISTS idx_movies_date ON movies(date)", 
                     "CREATE INDEX IF NOT EXISTS idx_movies_rating ON movies(rating)",
-                    "CREATE INDEX IF NOT EXISTS idx_posters_id_movies ON posters(id_movies)",
+                    "CREATE INDEX IF NOT EXISTS idx_posters_id_movie ON posters(id_movie)",
 
                     # Actors - relazioni e ricerche
-                    "CREATE INDEX IF NOT EXISTS idx_actors_id_movies ON actors(id_movies)",
+                    "CREATE INDEX IF NOT EXISTS idx_actors_id_movie ON actors(id_movie)",
                     "CREATE INDEX IF NOT EXISTS idx_actors_actor ON actors(actor)",
                     "CREATE INDEX IF NOT EXISTS idx_actors_actor_lower ON actors(LOWER(actor))",
                     
                     # Countries - relazioni
-                    "CREATE INDEX IF NOT EXISTS idx_countries_id_movies ON countries(id_movies)",
+                    "CREATE INDEX IF NOT EXISTS idx_countries_id_movie ON countries(id_movie)",
                     "CREATE INDEX IF NOT EXISTS idx_countries_country ON countries(country)",
                     
                     # Crews - ricerche registi/produttori
-                    "CREATE INDEX IF NOT EXISTS idx_crews_id_movies ON crews(id_movies)",
+                    "CREATE INDEX IF NOT EXISTS idx_crews_id_movie ON crews(id_movie)",
                     "CREATE INDEX IF NOT EXISTS idx_crews_name ON crews(name)",
                     "CREATE INDEX IF NOT EXISTS idx_crews_role ON crews(role)",
                     "CREATE INDEX IF NOT EXISTS idx_crews_name_role ON crews(name, role)",
                     
                     # Releases - filtri geografici/temporali
-                    "CREATE INDEX IF NOT EXISTS idx_releases_id_movies ON releases(id_movies)",
+                    "CREATE INDEX IF NOT EXISTS idx_releases_id_movie ON releases(id_movie)",
                     "CREATE INDEX IF NOT EXISTS idx_releases_country ON releases(country)",
                     "CREATE INDEX IF NOT EXISTS idx_releases_date ON releases(date)",
                     
                     # Oscar - ricerche premi
-                    "CREATE INDEX IF NOT EXISTS idx_oscars_id_movies ON oscars(id_movies)",
+                    "CREATE INDEX IF NOT EXISTS idx_oscars_id_movie ON oscars(id_movie)",
                     "CREATE INDEX IF NOT EXISTS idx_oscars_film ON oscars(film)",
                     "CREATE INDEX IF NOT EXISTS idx_oscars_name ON oscars(name)",
                     "CREATE INDEX IF NOT EXISTS idx_oscars_category ON oscars(category)",
                     
                     # Genres, Studios, Themes - filtri comuni
-                    "CREATE INDEX IF NOT EXISTS idx_genres_id_movies ON genres(id_movies)",
+                    "CREATE INDEX IF NOT EXISTS idx_genres_id_movie ON genres(id_movie)",
                     "CREATE INDEX IF NOT EXISTS idx_genres_genre ON genres(genre)",
-                    "CREATE INDEX IF NOT EXISTS idx_studios_id_movies ON studios(id_movies)",
-                    "CREATE INDEX IF NOT EXISTS idx_themes_id_movies ON themes(id_movies)",
+                    "CREATE INDEX IF NOT EXISTS idx_studios_id_movie ON studios(id_movie)",
+                    "CREATE INDEX IF NOT EXISTS idx_themes_id_movie ON themes(id_movie)",
                     
                     #tringrammi per la ricerca suggestion 
                     "CREATE EXTENSION IF NOT EXISTS pg_trgm",

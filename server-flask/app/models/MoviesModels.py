@@ -117,112 +117,13 @@ class Movie(db.Model):
             )
                         
             if not movie_results:
-                #fallback un po inutile perchè per forza troverà un film 
                 print(f"Film con ID {movie_id} non trovato o ha dati invalidi")
                 return None
-            
-            # === COSTRUZIONE DATI DEL FILM ===
-  
-          
-            risultato = {
-                'id': movie_results.id,
-                'name': movie_results.name,
-                'date': int(movie_results.date) if movie_results.date else None,
-                'rating': float(movie_results.rating) if movie_results.rating else None,
-                'minute': int(movie_results.minute) if movie_results.minute else None,
-                'tagline': movie_results.tagline,
-                'description': movie_results.description,
-            }
-            
-            if movie_results.posters:
-                risultato['poster'] = {
-                    'url': movie_results.posters[0].link,  # Prendiamo il primo poster come principale anche se abbiamo visto che il rapporto è 1:1
-                    'alt': f"Poster di {movie_results.name}"
-                }
-            else:
-                risultato['poster'] = {
-                    'url': None,
-                    'alt': f"Poster di {movie_results.name}"
-                }  
         
-        
-            actors= {}  
-
-            for actor in movie_results.actors:
-                actor_name = actor.actor
-                role = actor.role if actor.role else ""
-
-                if role in actors:
-                    actors[role].append(actor_name)
-                else:
-                    actors[role] = [actor_name]
-            
-            crew = {}
-            
-            for membro_crew in movie_results.crews:
-                
-                ruolo = membro_crew.role if membro_crew.role else ""
-                
-                if ruolo not in crew:
-                    crew[ruolo] = []
-                crew[ruolo].append(membro_crew.name)
-                        
-            
-            languages = {}
-            
-            for lang in movie_results.languages:
-                
-                type = lang.type
-                language = lang.language
-                
-                if type not in languages:
-                    
-                    languages[type] = []
-                languages[type].append(language)
-            
-            
-            
-            releases = {}
-            
-            for release in movie_results.releases:
-                
-                country = release.country
-                date = release.date.isoformat()
-                type= release.type if release.type else ''
-                rating= release.rating if release.rating else ''
-                
-                if country not in releases:
-                    releases[country] = {}
-                    
-                if date not in releases[country]:
-                    releases[country][date] = {}
-                
-                releases[country][date]['rating'] = rating
-                releases[country][date]['type'] = type
-            
-            
-            
-            #quando lui fa il join crea già lui un iterabile di oggetti Genre
-            risultato['actors'] = actors
-            risultato['crews'] = crew
-            risultato['languages'] = languages
-            risultato['releases'] =  releases
-            risultato['genres'] = [genre.genre for genre in movie_results.genres]
-            risultato['studios'] = [studio.studio for studio in movie_results.studios]
-            risultato['themes'] = [theme.theme for theme in movie_results.themes]
-            risultato['countries'] = [country.country for country in movie_results.countries]
-            
-        
-            return risultato
-            
+            return movie_results
         except Exception as e:
-            
             print(f"Errore in get_movie_details per ID {movie_id}: {str(e)}")
-            
-            return { 'status': 'fallito',
-                    'errore': e,
-                    'funzione': 'get_movies_details', 
-            }
+            raise 
 
     @classmethod
     def get_suggestions(cls, query, limit=5):
@@ -234,15 +135,6 @@ class Movie(db.Model):
         utilizzato un indice basato sui trigrammi ottimizzato!
         
         """
-        
-        # === VALIDAZIONE E PULIZIA INPUT ===
-
-        if not query or len(query) < 2:
-            return []
-            
-        if len(query) > 50:
-            query = query[:50]
-                
         # === QUERY ===
         
         try:
@@ -269,32 +161,18 @@ class Movie(db.Model):
                 .all()
             )
             
-            # === RISULTATO ===
-            
-            result = []
-            for movie in suggestions:
-                poster_url = movie.posters[0].link if movie.posters else None
-                
-                suggestion = {
-                    'id': movie.id,
-                    'name': movie.name,
-                    'date': int(movie.date) if movie.date else None,
-                    'poster_url': poster_url,
-                }
-                result.append(suggestion)
-            
-            return result
+            return suggestions
             
         except Exception as e:
             print(f"Errore in get_suggestions per query '{query}': {str(e)}")
-            return []
+            raise
         
     @classmethod
     def search(cls, filters=None, page=1, per_page=20):
 
         # Calcola offset per paginazione
         offset = (page - 1) * per_page
-        
+
         try:
             # === COSTRUZIONE QUERY  ===
 
@@ -370,6 +248,7 @@ class Movie(db.Model):
             else:
                 base_query = base_query.order_by(cls.date.desc().nulls_last())
                 base_query = base_query.order_by(cls.rating.desc().nulls_last())
+            
             #== faccio calcoli della paginazione prima dei join ==
             
             count_query = base_query.statement.alias()
@@ -387,53 +266,18 @@ class Movie(db.Model):
             
             # ===ESECUZIONE QUERY CON PAGINAZIONE ===
             
-            movies = base_query.offset(offset).limit(per_page).all()
+            movie_results = base_query.offset(offset).limit(per_page).all()
             
-            # ===TRASFORMAZIONE RISULTATI ===
+            if movie_results == [] : 
+                print(f"Nessun film trovato con i parametri di query")
+                return None 
             
-            movies_list = []
-            for movie in movies:
-                # Grazie all'eager loading, accedere a genres e posters non causa query aggiuntive
-                movie_data = {
-                    'id': movie.id,
-                    'name': movie.name,
-                    'date': int(movie.date) if movie.date else None,
-                    'rating': float(movie.rating) if movie.rating else None,
-                    'minute': int(movie.minute) if movie.minute else None,
-                    'poster_url': movie.posters[0].link if movie.posters else None,
-                    'genres': [genre.genre for genre in movie.genres]
-                }
-                movies_list.append(movie_data)
-            
-            
-            total_pages = (total_count + per_page - 1) // per_page
-            
-            pagination_info = {
-                
-                'current_page': page,
-                'per_page': per_page,
-                'total_results': total_count,
-                'total_pages': total_pages,
-                'has_next': page < total_pages,
-                'has_previous': page > 1
-            
-            }
-            
-            return movies_list, pagination_info
+            return movie_results, total_count
             
         except Exception as e:
             print(f"Errore in search_movies: {str(e)}")
-            #per adesso lascio un template di pagination
-            return [], {
-                'current_page': 1,
-                'per_page': per_page,
-                'total_results': 0,
-                'total_pages': 0,
-                'has_next': False,
-                'has_previous': False
-            }    
+            raise   
 
-      
 class Genre(db.Model):
     """
     Modello per i generi cinematografici.
@@ -448,14 +292,14 @@ class Genre(db.Model):
     __tablename__ = 'genres'
     
     id = db.Column(db.Integer, primary_key=True)
-    id_movies = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
+    id_movie = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
     genre = db.Column(db.Text, nullable=False, index=True)  # Nome del genere (Action, Drama, etc.)
     
     # Relazione back-reference verso Movie
     movie = relationship('Movie', back_populates='genres')
     
     def __repr__(self):
-        return f'<Genre {self.genre} for Movie {self.id_movies}>'
+        return f'<Genre {self.genre} for Movie {self.id_movie}>'
 
 class Actor(db.Model):
     """
@@ -472,7 +316,7 @@ class Actor(db.Model):
     __tablename__ = 'actors'
     
     id = db.Column(db.Integer, primary_key=True)
-    id_movies = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
+    id_movie = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
     actor = db.Column(db.Text, nullable=False, index=True)  # Nome dell'attore
     role = db.Column(db.Text)  # Nome del personaggio interpretato
     
@@ -480,7 +324,7 @@ class Actor(db.Model):
     movie = relationship('Movie', back_populates='actors')
     
     def __repr__(self):
-        return f'<Actor {self.actor} as {self.role} in Movie {self.id_movies}>'
+        return f'<Actor {self.actor} as {self.role} in Movie {self.id_movie}>'
 
 class Country(db.Model):
     """
@@ -495,14 +339,14 @@ class Country(db.Model):
     __tablename__ = 'countries'
     
     id = db.Column(db.Integer, primary_key=True)
-    id_movies = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
+    id_movie = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
     country = db.Column(db.Text, nullable=False, index=True)  # Nome del paese
     
     # Relazione back-reference verso Movie
     movie = relationship('Movie', back_populates='countries')
     
     def __repr__(self):
-        return f'<Country {self.country} for Movie {self.id_movies}>'
+        return f'<Country {self.country} for Movie {self.id_movie}>'
 
 class Crew(db.Model):
     """
@@ -518,7 +362,7 @@ class Crew(db.Model):
     __tablename__ = 'crews'
     
     id = db.Column(db.Integer, primary_key=True)
-    id_movies = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
+    id_movie = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
     role = db.Column(db.Text, nullable=False, index=True)  # Ruolo: Director, Producer, Writer, etc.
     name = db.Column(db.Text, nullable=False, index=True)  # Nome della persona
     
@@ -526,7 +370,7 @@ class Crew(db.Model):
     movie = relationship('Movie', back_populates='crews')
     
     def __repr__(self):
-        return f'<Crew {self.name} ({self.role}) for Movie {self.id_movies}>'
+        return f'<Crew {self.name} ({self.role}) for Movie {self.id_movie}>'
 
 class Language(db.Model):
     """
@@ -539,7 +383,7 @@ class Language(db.Model):
     __tablename__ = 'languages'
     
     id = db.Column(db.Integer, primary_key=True)
-    id_movies = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
+    id_movie = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
     type = db.Column(db.Text)  # Tipo: "Spoken", "Subtitle", etc.
     language = db.Column(db.Text, nullable=False, index=True)  # Nome della lingua
     
@@ -547,7 +391,7 @@ class Language(db.Model):
     movie = relationship('Movie', back_populates='languages')
     
     def __repr__(self):
-        return f'<Language {self.language} ({self.type}) for Movie {self.id_movies}>'
+        return f'<Language {self.language} ({self.type}) for Movie {self.id_movie}>'
 
 class Poster(db.Model):
     """
@@ -563,14 +407,14 @@ class Poster(db.Model):
     __tablename__ = 'posters'
     
     id = db.Column(db.Integer, primary_key=True)
-    id_movies = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
+    id_movie = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
     link = db.Column(db.Text, nullable=False)  # URL dell'immagine del poster
     
     # Relazione back-reference verso Movie
     movie = relationship('Movie', back_populates='posters')
     
     def __repr__(self):
-        return f'<Poster for Movie {self.id_movies}>'
+        return f'<Poster for Movie {self.id_movie}>'
 
 class Release(db.Model):
     """
@@ -588,7 +432,7 @@ class Release(db.Model):
     __tablename__ = 'releases'
     
     id = db.Column(db.Integer, primary_key=True)
-    id_movies = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
+    id_movie = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
     country = db.Column(db.Text, index=True)  # Paese di rilascio
     date = db.Column(db.Date, index=True)  # Data di rilascio (può essere diversa per paese)
     type = db.Column(db.Text)  # Tipo: "Theatrical", "Digital", "DVD", "IMAX", etc.
@@ -598,7 +442,7 @@ class Release(db.Model):
     movie = relationship('Movie', back_populates='releases')
     
     def __repr__(self):
-        return f'<Release {self.country} {self.date} ({self.type}) for Movie {self.id_movies}>'
+        return f'<Release {self.country} {self.date} ({self.type}) for Movie {self.id_movie}>'
 
 class Studio(db.Model):
     """
@@ -613,14 +457,14 @@ class Studio(db.Model):
     __tablename__ = 'studios'
     
     id = db.Column(db.Integer, primary_key=True)
-    id_movies = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
+    id_movie = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
     studio = db.Column(db.Text, nullable=False, index=True)  # Nome dello studio
     
     # Relazione back-reference verso Movie
     movie = relationship('Movie', back_populates='studios')
     
     def __repr__(self):
-        return f'<Studio {self.studio} for Movie {self.id_movies}>'
+        return f'<Studio {self.studio} for Movie {self.id_movie}>'
 
 class Theme(db.Model):
     """
@@ -635,14 +479,14 @@ class Theme(db.Model):
     __tablename__ = 'themes'
     
     id = db.Column(db.Integer, primary_key=True)
-    id_movies = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
+    id_movie = db.Column(db.Integer, db.ForeignKey('movies.id'), nullable=False, index=True)
     theme = db.Column(db.Text, nullable=False, index=True)  # Nome del tema
     
     # Relazione back-reference verso Movie
     movie = relationship('Movie', back_populates='themes')
     
     def __repr__(self):
-        return f'<Theme {self.theme} for Movie {self.id_movies}>'
+        return f'<Theme {self.theme} for Movie {self.id_movie}>'
     
 class Oscar(db.Model):
     """
@@ -653,7 +497,7 @@ class Oscar(db.Model):
     - I dati degli Oscar da un dataset separato
     
     Il campo 'winner' indica se ha vinto (True) o solo nominato (False).
-    Il matching con i film viene fatto tramite 'id_movies' che dovrebbe
+    Il matching con i film viene fatto tramite 'id_movie' che dovrebbe
     essere popolato durante il processo di data import.
     """
     
@@ -667,7 +511,7 @@ class Oscar(db.Model):
     name = db.Column(db.Text, nullable=False)  # Nome della persona nominata
     film = db.Column(db.Text, nullable=False)  # Titolo del film (dal dataset Oscar)
     winner = db.Column(db.Boolean, nullable=False, index=True)  # True = vinto, False = solo nominato
-    id_movies = db.Column(db.Integer, db.ForeignKey('movies.id'), index=True)  # Link al nostro dataset
+    id_movie = db.Column(db.Integer, db.ForeignKey('movies.id'), index=True)  # Link al nostro dataset
     
     # Relazione back-reference verso Movie
     movie = relationship('Movie', back_populates='oscars')

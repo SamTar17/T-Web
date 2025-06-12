@@ -1,0 +1,13 @@
+ù
+AGGIORNARE IL DATABASE INIT CON LE CREAZIONI DELLE DIVERSE COLLEZIONI IN MONGO DB 
+
+RIGUARDARE LA LOGICA DELLE PROXY E LE CHIAMATE COME VENGONO GESTITE
+
+INSERRIE PAGINAZIOEN PER IL RETRING DELLE ROOMS 
+
+
+non ho aggiunto un middleware di controllo validation nei microservizi ma lo aggiungerò al server centrale
+
+installata npm install express-validator che serve proprio per questo nel server centrale. una volta capita la logica possiamo estenderla anche ai microservizi
+
+express-validator salva ggli errori nella validazione dentro l oggetto request e puoi accedere a questi errori con validationResult()

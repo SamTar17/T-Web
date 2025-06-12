@@ -1,5 +1,5 @@
-const { getMessageModel } = require('../models/Message');
-
+const { getMessageModel } = require("../models/messageModel");
+const { getRoomModel } = require("../models/roomsModel");
 /**
  * Salva un nuovo messaggio nel database
  * ASSUME: Dati già validati e formattati dal server Express centrale
@@ -8,39 +8,24 @@ const { getMessageModel } = require('../models/Message');
  */
 async function saveMessage(req, res) {
   try {
-    console.log(`💾 Salvando messaggio ${req.body.messageId}`);
-    
-    // Salvataggio diretto - i dati sono già validati dal main server
+    //=== VALIDAZIONE MESSAGGIO
+    const validationError = _validateMessageBody(req.body);
+    if (validationError) return next(validationError);
+
     const Message = getMessageModel();
     await Message.saveMessage(req.body);
-    
+
     console.log(`✅ Messaggio salvato`);
-    
-    // Response minimale
+
     res.status(201).json({
       success: true,
-      messageId: req.body.messageId
+      messageId: req.body.uniqueTimestamp,
     });
-    
-  } catch (error) {
-    console.error(`❌ Errore salvataggio:`, error.message);
-    
-    // Gestione solo errori MongoDB
-    if (error.code === 11000) {
-      // Duplicato messageId (caso raro ma possibile)
-      return res.status(409).json({
-        success: false,
-        error: "Messaggio duplicato",
-        code: "DUPLICATE_MESSAGE"
-      });
-    }
-    
-    // Errore generico del database
-    res.status(500).json({
-      success: false,
-      error: "Errore database",
-      code: "DATABASE_ERROR"
-    });
+  } catch (err) {
+    err.myMessage = "errore in chatController -> saveMessage";
+    err.statusCode = 500;
+    err.code = "MODEL_ERROR";
+    return next(err);
   }
 }
 
@@ -50,35 +35,46 @@ async function saveMessage(req, res) {
  * @param {Object} req - Express request con roomName nei params
  * @param {Object} res - Express response
  */
-async function getLatestMessages(req, res) {
+async function getLatestMessages(req, res,next) {
   try {
-    const { roomName } = req.params;
-    const limit = parseInt(req.query.limit) || 100; // Default 100
-    
-    console.log(`📥 Recupero ultimi ${limit} messaggi da ${roomName}`);
-    
-    // Recupera messaggi dal database
+    if (typeof req.params.roomName !== "string") {
+      const err = new Error("RoomName non valido");
+      err.status = 400;
+      err.code = "INVALID_INPUT";
+      return next(err);
+    }
+
+    const roomName = req.params.roomName;
+    const parsedPage = parseInt(req.query.page);
+    const page = !isNaN(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+
     const Message = getMessageModel();
-    const messages = await Message.getLatestMessages(roomName, limit);
-    
-    console.log(`✅ Trovati ${messages.length} messaggi`);
-    
-    // Response minimale
+    const results = await Message.getLatestMessages(roomName, page);
+
+    if (results.messages.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "Nessuna messaggio disponibile",
+        roomName: roomName,
+        message: [],
+        count: 0,
+        pagination: results.pagination.page,
+      });
+    }
+
     res.status(200).json({
       success: true,
-      messages: messages,
-      count: messages.length
+      roomName: roomName,
+      message: results.messages,
+      count: results.messages.length,
+      beforeUniqueTimestamp: results.pagination.beforeUniqueTimestamp,
+      page: results.pagination.page,
     });
-    
-  } catch (error) {
-    console.error(`❌ Errore recupero messaggi:`, error.message);
-    
-    // Errore generico
-    res.status(500).json({
-      success: false,
-      error: "Errore recupero messaggi",
-      code: "DATABASE_ERROR"
-    });
+  } catch (err) {
+    err.myMessage = "errore in chatController -> getLatestMessages";
+    err.statusCode = 500;
+    err.code = "MODEL_ERROR";
+    return next(err);
   }
 }
 
@@ -88,41 +84,224 @@ async function getLatestMessages(req, res) {
  * @param {Object} req - Express request con roomName e timestamp nei params
  * @param {Object} res - Express response
  */
-async function getMessagesBefore(req, res) {
+async function getMessagesBefore(req, res,next) {
   try {
+    const validationError = _validatebeforeMessageParams(req);
+    if (validationError) return next(validationError);
+
     const { roomName, timestamp } = req.params;
-    const limit = parseInt(req.query.limit) || 100; // Default 100
-    
-    console.log(`📥 Recupero ${limit} messaggi da ${roomName} prima di ${timestamp}`);
-    
-    // Recupera messaggi precedenti dal database
     const Message = getMessageModel();
-    const messages = await Message.getMessagesBefore(roomName, timestamp, limit);
-    
+    const messages = await Message.getMessagesBefore(roomName, timestamp);
+
     console.log(`✅ Trovati ${messages.length} messaggi precedenti`);
-    
-    // Response minimale
+
+    if (messages.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "Nessuna messaggio precedente disponibile",
+        roomName: roomName,
+        messages: [],
+        count: 0,
+      });
+    }
     res.status(200).json({
       success: true,
-      messages: messages,
+      roomName: roomName,
+      message: messages,
       count: messages.length,
-      hasMore: messages.length === limit // Se ha trovato esattamente 'limit' messaggi, potrebbero essercene altri
     });
-    
-  } catch (error) {
-    console.error(`❌ Errore recupero messaggi precedenti:`, error.message);
-    
-    // Errore generico
-    res.status(500).json({
-      success: false,
-      error: "Errore recupero messaggi precedenti",
-      code: "DATABASE_ERROR"
-    });
+  } catch (err) {
+    err.myMessage = "errore in chatController -> getMessagesBefore";
+    err.statusCode = 500;
+    err.code = "MODEL_ERROR";
+    return next(err);
   }
+}
+
+async function saveRoom(req, res,next) {
+  try {
+    const validationError = _validateRoomData(req.body);
+    if (validationError) return next(validationError);
+
+    const Room = getRoomModel();
+    await Room.saveRoom(req.body);
+
+    console.log(`✅ room salvato`);
+
+    res.status(201).json({
+      success: true,
+      room: req.body.roomName,
+    });
+  } catch (err) {
+    err.myMessage = "errore in chatController -> saveRoom";
+    err.statusCode = 500;
+    err.code = "MODEL_ERROR";
+    return next(err);
+  }
+}
+
+async function getAllRooms(req, res,next) {
+  try {
+    const Room = getRoomModel();
+    const rooms = await Room.getAllRooms();
+
+    if (rooms.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "Nessuna stanza disponibile",
+        rooms: [],
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      roomName: roomName,
+      rooms: rooms,
+    });
+  } catch (err) {
+    err.myMessage = "errore in chatController -> getAllRooms";
+    err.statusCode = 500;
+    err.code = "MODEL_ERROR";
+    return next(err);
+  }
+}
+
+async function updateActivity(req, res,next) {
+  try {
+    if (
+      typeof req.params.roomName !== "string" ||
+      req.params.roomName.trim() === ""
+    ) {
+      const err = new Error("roomName non valido o mancante");
+      err.status = 400;
+      err.code = "INVALID_INPUT";
+      return next(err);
+    }
+
+    const Room = getRoomModel();
+    const activeRoom = req.params.roomName;
+
+    await Room.updateActivity(activeRoom);
+
+    return res.json({ message: "Attività stanza aggiornata" });
+  } catch (err) {
+    err.myMessage = "errore in chatController -> updateActivity";
+    err.statusCode = 500;
+    err.code = "MODEL_ERROR";
+    return next(err);
+  }
+}
+
+function _validateMessageBody(body) {
+  if (!body) {
+    const err = new Error("Corpo della richiesta mancante");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    return err;
+  }
+
+  if (
+    typeof body.uniqueTimestamp !== "string" ||
+    body.uniqueTimestamp.trim() === ""
+  ) {
+    const err = new Error("uniqueTimestamp mancante o non valido");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    return err;
+  }
+
+  const timestampPattern = /^\d+_\d{3}$/;
+  if (!timestampPattern.test(body.uniqueTimestamp)) {
+    const err = new Error("Formato uniqueTimestamp non valido");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    return err;
+  }
+
+  if (typeof body.text !== "string" || body.text.trim() === "") {
+    const err = new Error("Testo del messaggio mancante o non valido");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    return err;
+  }
+
+  if (typeof body.author !== "string" || body.author.trim() === "") {
+    const err = new Error("Autore mancante o non valido");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    return err;
+  }
+
+  return null; // Nessun errore
+}
+function _validatebeforeMessageParams(req) {
+  const { roomName, uniqueTimestamp } = req.params;
+
+  if (typeof roomName !== "string" || roomName.trim() === "") {
+    const err = new Error("roomName non valido o mancante");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    return err;
+  }
+
+  if (typeof uniqueTimestamp !== "string" || uniqueTimestamp.trim() === "") {
+    const err = new Error("uniqueTimestamp mancante o non valido");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    return err;
+  }
+
+  const timestampPattern = /^\d+_\d{3}$/;
+  if (!timestampPattern.test(uniqueTimestamp)) {
+    const err = new Error("Formato uniqueTimestamp non valido");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    return err;
+  }
+
+  return null; // Nessun errore
+}
+function _validateRoomData(roomData) {
+
+  if (typeof roomData.roomName !== "string" || roomData.roomName.trim() === "") {
+    const err = new Error("roomName mancante o non valido");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    return err;
+  }
+
+  if (typeof roomData.creator !== "string" || roomData.creator.trim() === "") {
+    const err = new Error("creator mancante o non valido");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    return err;
+  }
+
+  if (typeof roomData.topic !== "string" || roomData.topic.trim() === "") {
+    const err = new Error("topic mancante o non valido");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    return err;
+  }
+
+  if (
+    !roomData.last_activity ||
+    isNaN(new Date(roomData.last_activity).getTime())
+  ) {
+    const err = new Error("last_activity mancante o non è una data valida");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    return err;
+  }
+
+  return null; // Tutto ok
 }
 
 module.exports = {
   saveMessage,
   getLatestMessages,
-  getMessagesBefore
+  getMessagesBefore,
+  saveRoom,
+  getAllRooms,
+  updateActivity,
 };

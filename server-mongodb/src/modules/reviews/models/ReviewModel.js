@@ -1,163 +1,270 @@
+const mongoose = require("mongoose");
 const databaseManager = require("../../../services/DatabaseManager");
 
-/**
- * ReviewModel - Gestisce l'accesso ai dati delle recensioni  
- * 
- * Metodi statici :  
- * - getReviewsCollection()  
- * - getReviewsById()
- */
-class ReviewModel {
-  /**
-   * Ottiene la connessione alla collezione reviews di MongoDB
-   */
-  static getReviewsCollection() {
-    const reviewsConnection = databaseManager.getReviewsCollection();
-    return reviewsConnection;
+const reviewSchema = new mongoose.Schema(
+  {
+    movie_title: {
+      type: String,
+      required: true,
+      trim: true,
+      index: true,
+    },
+
+    review_type: {
+      type: String,
+      enum: {
+        values: ["Fresh", "Rotten", "Certified Fresh", "Spilled"],
+        message:
+          "Tipo recensione deve essere: Fresh, Rotten, Certified Fresh, o Spilled",
+      },
+      index: true,
+    },
+
+    publisher_name: {
+      type: String,
+      trim: true,
+    },
+
+    id_movie: {
+      type: Number,
+      required: false,
+      index: true,
+      validate: {
+        validator: function (value) {
+          return (
+            value === null ||
+            value === undefined ||
+            (Number.isInteger(value) && value > 0)
+          );
+        },
+        message: "ID film deve essere un numero intero positivo",
+      },
+    },
+
+    rotten_tomatoes_link: {
+      type: String,
+    },
+
+    critic_name: {
+      type: String,
+    },
+
+    review_score: {
+      type: Number,
+      validate: {
+        validator: function (value) {
+          return value > 0;
+        },
+        message: "review_score deve essere un numero positivo",
+      },
+    },
+
+    review_date: {
+      type: String,
+    },
+    top_critic: {
+      type: Boolean,
+    },
+    review_content: {
+      type: String,
+      maxlength: 600,
+    },
+  },
+  {
+    collection: "reviews",
   }
+);
 
-  /**
-   * Recupera recensioni di un film specifico tramite ID
-   *
-   * @param {number} movieId - ID del film nel database PostgreSQL
-   * @returns {Promise<Array>} Array di recensioni per il film
-   */
-  static async getReviewsById(movieId) {
-    try {
-      console.log(`🔍 Cercando recensioni per film ID: ${movieId}`);
+reviewSchema.index({ id_movie: 1, review_date: -1 });
+reviewSchema.index({ movie_title: 1, review_type: 1 });
 
-      const collection = this.getReviewsCollection();
+reviewSchema.statics.getReviewsByMovieId = async function (
+  movieId,
+  pagination = {}
+) {
+  try {
+    //destrutturazione dell oggetto pagination
+    const {
+      page = 1,
+      limit = 20,
+      sortBy = "review_date",
+      sortOrder = -1, // -1 = DESC, 1 = ASC
+    } = pagination;
 
-      const reviews = await collection
-        .find({
-          id_movies: movieId, 
-        })
-        .toArray(); // Converte il cursor MongoDB in array JavaScript
+    const skip = (page - 1) * limit;
 
-      console.log(
-        `✅ Trovate ${reviews.length} recensioni per film ID ${movieId}`
-      );
+    const [reviews, totalCount] = await Promise.all([
+      this.find({ id_movie: movieId })
+        .sort({ [sortBy]: sortOrder })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.countDocuments({ id_movie: movieId }),
+    ]);
 
-      return reviews;
-
-    } catch (error) {
-      // GESTIONE ERRORI: Loggiamo l'errore e lo rilanciamo per il controller
-      console.error(
-        `❌ Errore ReviewModel -> getReviewsById ${movieId}:`,
-        error.message
-      );
-      throw error; // Il controller gestirà la risposta HTTP appropriata!!!!!!!
-    }
+    return { reviews, totalCount };
+  } catch (error) {
+    console.error(
+      `❌ Mongoose: Errore recupero recensioni per film ID ${movieId}:`,
+      error.message
+    );
+    throw error;
   }
-  /**
-   * Calcola statistiche recensioni
-   *
-   * @param {number} movieId 
-   * @returns {Promise<Object>}
-   */
-  static async getMovieReviewStats(movieId) {
-    try {
-      const collection = this.getReviewsCollection();
+};
 
-      const pipeline = [
-        {
-          $match: {
-            id_movies: movieId, // Filtra solo recensioni di questo film
+reviewSchema.statics.getReviewsStatistics = async function (movieId) {
+  try {
+    const pipeline = [
+      // === STAGE 1: FILTRO INIZIALE ===
+      {
+        $match: {
+          id_movie: movieId,
+          review_score: {
+            $gt: 0, // Esclude i nan
+            $exists: true, // Campo deve esistere
+            $type: "number", // Deve essere un numero
+          },
+
+          review_type: {
+            $in: ["Fresh", "Rotten", "Certified Fresh", "Spilled"],
           },
         },
-        {
-          $group: {
-            _id: null, // non raggruppa
+      },
 
-            totalReviews: {
-              $sum: 1, 
-            },
+      // === STAGE 2: AGGREGAZIONE PRINCIPALE ===
+      {
+        $group: {
+          _id: null,
 
-            averageScore: {
-              $avg: "$review_score",
-            },
+          // Contatori base
+          totalReviews: { $sum: 1 },
 
-            maxScore: {
-              $max: "$review_score",
-            },
+          // Statistiche punteggi (solo valori numerici validi)
+          averageScore: { $avg: "$review_score" },
+          maxScore: { $max: "$review_score" },
+          minScore: { $min: "$review_score" },
 
-            minScore: {
-              $min: "$review_score", 
-            },
-
-            positiveReviews: {
-              $sum: {
-                $cond: [
-                  { $gte: ["$review_score", 6] }, 
-                  1,
-                  0,
-                ],
-              },
-            },
-            negativeReviews: {
-              $sum: {
-                $cond: [
-                  { $lt: ["$review_score", 6] }, 
-                  1, 
-                  0, 
-                ],
-              },
-            },
-
-            reviewTypes: {
-              $push: "$review_type",
-            },
-          },
-        },
-//=== pulizia dati === 
-        {
-          $project: {
-            _id: 0,
-            totalReviews: 1,
-            maxScore: 1,
-            minScore: 1,
-            averageScore: {
-              $round: ["$averageScore", 2],
-            },
-            positivePercentage: {
-              $round: [
-                {
-                  $multiply: [
-                    { $divide: ["$positiveReviews", "$totalReviews"] },
-                    100,
-                  ],
-                },
-                1, // Arrotonda a 1 decimale
-              ],
-            },
-
-            negativePercentage: {
-              $round: [
-                {
-                  $multiply: [
-                    { $divide: ["$negativeReviews", "$totalReviews"] },
-                    100,
-                  ],
-                },
+          // 🆕 CONTEGGIO FRESH (Fresh + Certified Fresh)
+          freshReviews: {
+            $sum: {
+              $cond: [
+                { $in: ["$review_type", ["Fresh", "Certified Fresh"]] },
                 1,
+                0,
               ],
             },
-            positiveReviews: 1,
-            negativeReviews: 1,
+          },
 
-            reviewTypeDistribution: {
-              $let: {
-                vars: {
+          // 🆕 CONTEGGIO ROTTEN (Rotten + Spilled)
+          rottenReviews: {
+            $sum: {
+              $cond: [{ $in: ["$review_type", ["Rotten", "Spilled"]] }, 1, 0],
+            },
+          },
 
-                  typeGroups: {
-                    $map: {
-                      input: {
-                        $setUnion: ["$reviewTypes", []], // Rimuove duplicati
-                      },
-                      as: "type",
-                      in: {
-                        k: "$$type", // Il tipo di review (es. "Fresh")
-                        v: {
+          // Manteniamo anche il conteggio per punteggio (backup)
+          positiveScoreReviews: {
+            $sum: {
+              $cond: [{ $gte: ["$review_score", 6] }, 1, 0],
+            },
+          },
+
+          negativeScoreReviews: {
+            $sum: {
+              $cond: [{ $lt: ["$review_score", 6] }, 1, 0],
+            },
+          },
+
+          // Array di tutti i tipi per distribuzione dettagliata
+          reviewTypes: { $push: "$review_type" },
+        },
+      },
+
+      // === STAGE 3: CALCOLO PERCENTUALI E PULIZIA ===
+      {
+        $project: {
+          _id: 0,
+          totalReviews: 1,
+          maxScore: 1,
+          minScore: 1,
+
+          // Punteggio medio arrotondato
+          averageScore: {
+            $round: ["$averageScore", 2],
+          },
+
+          // 🆕 PERCENTUALI FRESH/ROTTEN
+          freshPercentage: {
+            $cond: [
+              { $gt: ["$totalReviews", 0] },
+              {
+                $round: [
+                  {
+                    $multiply: [
+                      { $divide: ["$freshReviews", "$totalReviews"] },
+                      100,
+                    ],
+                  },
+                  1,
+                ],
+              },
+              0,
+            ],
+          },
+
+          rottenPercentage: {
+            $cond: [
+              { $gt: ["$totalReviews", 0] },
+              {
+                $round: [
+                  {
+                    $multiply: [
+                      { $divide: ["$rottenReviews", "$totalReviews"] },
+                      100,
+                    ],
+                  },
+                  1,
+                ],
+              },
+              0,
+            ],
+          },
+
+          // Conteggi assoluti Fresh/Rotten
+          freshCount: "$freshReviews",
+          rottenCount: "$rottenReviews",
+
+          // Manteniamo anche le percentuali per punteggio (per confronto)
+          positiveScorePercentage: {
+            $cond: [
+              { $gt: ["$totalReviews", 0] },
+              {
+                $round: [
+                  {
+                    $multiply: [
+                      { $divide: ["$positiveScoreReviews", "$totalReviews"] },
+                      100,
+                    ],
+                  },
+                  1,
+                ],
+              },
+              0,
+            ],
+          },
+
+          // 🆕 DISTRIBUZIONE DETTAGLIATA PER TIPO
+          reviewTypeDistribution: {
+            $let: {
+              vars: {
+                typeGroups: {
+                  $map: {
+                    input: { $setUnion: ["$reviewTypes", []] },
+                    as: "type",
+                    in: {
+                      k: "$$type",
+                      v: {
+                        count: {
                           $size: {
                             $filter: {
                               input: "$reviewTypes",
@@ -165,41 +272,64 @@ class ReviewModel {
                             },
                           },
                         },
+                        percentage: {
+                          $round: [
+                            {
+                              $multiply: [
+                                {
+                                  $divide: [
+                                    {
+                                      $size: {
+                                        $filter: {
+                                          input: "$reviewTypes",
+                                          cond: { $eq: ["$$this", "$$type"] },
+                                        },
+                                      },
+                                    },
+                                    "$totalReviews",
+                                  ],
+                                },
+                                100,
+                              ],
+                            },
+                            1,
+                          ],
+                        },
                       },
                     },
                   },
                 },
-                in: {
-                  $arrayToObject: "$$typeGroups",
-                },
+              },
+              in: {
+                $arrayToObject: "$$typeGroups",
               },
             },
           },
         },
-      ];
+      },
+    ];
 
-      const result = await collection.aggregate(pipeline).toArray();
+    const result = await this.aggregate(pipeline);
 
-      if (result.length === 0) {
-        return null; 
-      }
+    const stats = result.length === 0 ? null : result[0];
 
-      const stats = result[0];
+    console.log(
+      `✅ Statistiche calcolate per film ID ${movieId}: ${stats.totalReviews} recensioni, media ${stats.averageScore}`
+    );
 
-      console.log(
-        `✅ Statistiche calcolate per film ID ${movieId}: ${stats.totalReviews} recensioni, media ${stats.averageScore}`
-      );
-
-      return stats;
-      
-    } catch (error) {
-      console.error(
-        `❌ Errore calcolo statistiche per film ID ${movieId}:`,
-        error.message
-      );
-      throw error; // Il controller gestirà l'errore HTTP
-    }
+    return stats;
+  } catch (error) {
+    console.error(
+      `❌ Errore calcolo statistiche per film ID ${movieId}:`,
+      error.message
+    );
+    throw error;
   }
+};
+
+function getReviewModel() {
+  const connection = databaseManager.getConnection();
+  return connection.model("Review", reviewSchema);
 }
 
-module.exports = ReviewModel;
+module.exports = { getReviewModel };

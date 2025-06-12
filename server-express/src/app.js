@@ -2,14 +2,12 @@ require("dotenv").config();
 
 const express = require("express");
 const http = require("http");
-const configureMiddleware = require("./config/middleware");
-const createSocketServer = require("./config/socketServer");
-const ConnectionManager = require("./services/ConnectionManager");
-const HealthMonitor = require("./services/HealthServiceMonitor");
-const ChatHandler = require("./services/ChatHandler");
+
+const configureMiddleware = require("./utils/middlewareFactory");
+const createSocketServer = require("./utils/socketServerFactory");
+//const ChatHandler = require("./services/ChatHandler");
 const errorHandler = require("./middleware/errorHandler");
-const { router: debugRoutes, setConnectionManager } = require("./routes/debug");
-const movieRoutes = require("./routes/movies");
+const movieRoutes = require("./routes/moviesRoutes");
 const gracefulShutdown =  require("./utils/gracefulShutdown");
 
 //================================================
@@ -21,13 +19,10 @@ const server = http.createServer(app);
 //========= SETUP E CONFIGURAZIONI =======
 configureMiddleware(app);
 
-const healthMonitor = new HealthMonitor();
 const io = createSocketServer(server);
 console.log("🔌 Socket.io inizializzato e configurato");
 
-const connectionManager = new ConnectionManager();
-const chatHandler = new ChatHandler(connectionManager, io);
-setConnectionManager(connectionManager); //debug
+//const chatHandler = new ChatHandler(connectionManager, io);
 
 console.log("📊 ConnectionManager creato");
 console.log("💬 ChatHandler configurato");
@@ -37,21 +32,12 @@ io.on("connection", (clientSocket) => {
   chatHandler.handleConnections(clientSocket);
 });
 
-app.use("/api/debug", debugRoutes);
 app.use("/api", movieRoutes);
-
-app.get("/api/services/health", (req, res) => {
-  const status = healthMonitor.getHealthSummary();
-  res.json(status);
-});
 
 app.use(errorHandler);
 
-console.log("🚀 Avvio ServiceHealthMonitor...");
-healthMonitor.start();
-
-process.on("SIGINT", () => gracefulShutdown(server, io, healthMonitor));
-process.on("SIGTERM",() => gracefulShutdown(server, io, healthMonitor));
+process.on("SIGINT", () => gracefulShutdown(server, io));
+process.on("SIGTERM",() => gracefulShutdown(server, io));
 
 // ✅ Esporta solo il server per `server.listen(...)`
 module.exports = server;

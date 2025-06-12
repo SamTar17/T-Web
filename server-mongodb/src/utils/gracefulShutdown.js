@@ -1,7 +1,5 @@
-function gracefulShutdown(server, io, healthMonitor) {
+function gracefulShutdown(server, io) {
   console.log("🧹 Arresto del server in corso...");
-
-  healthMonitor.stop();
 
   server.close(() => {
     console.log("🔌 Server HTTP chiuso.");

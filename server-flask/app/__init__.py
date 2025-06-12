@@ -23,10 +23,8 @@ def create_app(config_class=DatabaseConfig):
     # ===CREAZIONE ISTANZA FLASK ===
     app = Flask(__name__)
     app.config.from_object(config_class)
-    print("✅ Flask app creata e configurata")
     
     # ===INIZIALIZZAZIONE DATABASE ===
-
     db.init_app(app)
     print("✅ SQLAlchemy inizializzato e collegato al database PostgreSQL")
     
@@ -42,8 +40,8 @@ def create_app(config_class=DatabaseConfig):
     
     # === ROUTES ===
 
-    from app.routes.health import health_bp
-    from app.routes.movies import movies_bp
+    from app.routes.healthRoute import health_bp
+    from app.routes.moviesRoutes import movies_bp
     
     app.register_blueprint(health_bp)
     app.register_blueprint(movies_bp)
@@ -53,7 +51,6 @@ def create_app(config_class=DatabaseConfig):
     # === LOGGING E DEBUG INFO ===
     
     if app.config.get('DEBUG'):        
-        # Lista di tutte le routes registrate (utile per debugging)
         print("📍 ROUTES REGISTRATE:")
         for rule in app.url_map.iter_rules():
             print(f"   {rule.methods} {rule.rule}")

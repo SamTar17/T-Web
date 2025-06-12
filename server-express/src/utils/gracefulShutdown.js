@@ -1,15 +1,13 @@
-function gracefulShutdown(server, io, healthMonitor) {
-  console.log("🧹 Arresto del server in corso...");
+function gracefulShutdown(server, io) {
 
-  healthMonitor.stop();
 
-  server.close(() => {
-    console.log("🔌 Server HTTP chiuso.");
-    process.exit(0);
-  });
 
   io.close(() => {
-    console.log("📴 Socket.io chiuso.");
+    console.log("Socket.io chiuso.");
+  });
+  server.close(() => {
+    console.log("Server HTTP chiuso.");
+    process.exit(0);
   });
 }
 

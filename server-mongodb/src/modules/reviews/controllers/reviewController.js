@@ -1,4 +1,4 @@
-const ReviewModel = require("../models/ReviewModel");
+const { getReviewModel } = require("../models/ReviewModel");
 
 /**
  * ReviewController - Gestisce le richieste HTTP per le recensioni
@@ -25,20 +25,42 @@ async function getReviewsByMovieId(req, res) {
     const movieId = parseInt(req.params.movieId);
 
     if (isNaN(movieId) || movieId <= 0) {
-      return res.status(400).json({
-        success: false,
-        error: "ID film non valido",
-        code: "INVALID_MOVIE_ID",
-      });
+      const err = new Error("ID film non valido");
+      err.statusCode = 400;
+      err.code = "INVALID_MOVIE_ID";
+      return next(err); // Passo l'errore al middleware
     }
+
+    // === VALIDAZIONE PARAMETRI DI PAGINAZIONE ===
+
+    const parsedPage = parseInt(req.query.page);
+    const page = !isNaN(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+
+    const valid_sort_by = ["review_date", "review_score"];
+    const sortBy = valid_sort_by.includes(req.query.sortBy)
+      ? req.query.sortBy
+      : "review_date";
+    const orderBy = req.query.orderBy === "asc" ? 1 : -1;
 
     // ==== CHIAMATA AL MODEL ====
 
-    const reviews = await ReviewModel.getReviewsById(movieId);
+    const reviewModel = getReviewModel();
+
+    const pagination = {
+      page: page,
+      limit: 10,
+      sortBy: sortBy,
+      sortOrder: orderBy,
+    };
+
+    const reviewsById = await reviewModel.getReviewsByMovieId(
+      movieId,
+      pagination
+    );
 
     // === COSTRUZIONE RISPOSTE TO MAIN SERVER ===
 
-    if (reviews.length === 0) {
+    if (reviewsById.reviews.length === 0) {
       return res.status(200).json({
         success: true,
         message: "Nessuna recensione disponibile",
@@ -50,58 +72,54 @@ async function getReviewsByMovieId(req, res) {
 
     res.status(200).json({
       success: true,
-      movieId: movieId,
-      reviews: reviews,
-      count: reviews.length,
-      message: `${reviews.length} recensioni trovate`,
+      reviews: reviewsById.reviews,
+      pagination: {
+        currentPage: pagination.page,
+        totalPages: Math.ceil(reviewsById.totalCount / pagination.limit),
+        totalResults: reviewsById.totalCount,
+        hasNext: pagination.page * pagination.limit < reviewsById.totalCount,
+        hasPrev: pagination.page > 1,
+      },
+      count: reviewsById.reviews.length,
+      message: `${reviewsById.reviews.length} recensioni trovate`,
     });
-  } catch (error) {
-    console.error(
-      `❌ Errore durante recupero recensioni per ID ${req.params.movieId}:`,
-      error.message
-    );
-
-    res.status(500).json({
-      success: false,
-      error: "Errore interno del server durante il recupero delle recensioni",
-      code: "INTERNAL_SERVER_ERROR",
-      movieId: req.params.movieId,
-    });
+  } catch (err) {
+    err.myMessage = "errore in reviewController -> getReviewsByMovieId";
+    err.statusCode = 500;
+    err.code = "MODEL_ERROR";
+    return next(err);
   }
 }
+
 /**
  * Gestisce richieste per statistiche recensioni
  *
  * ENDPOINT: GET /api/reviews/movie/:movieId/stats
  *
- * @param {Object} req 
+ * @param {Object} req
  * @param {Object} res
  */
 async function getMovieReviewStats(req, res) {
   try {
-
     const movieId = parseInt(req.params.movieId);
 
     if (isNaN(movieId) || movieId <= 0) {
-      return res.status(400).json({
-        success: false,
-        error: "ID film non valido.",
-        code: "INVALID_MOVIE_ID",
-      });
+      const err = new Error("ID film non valido");
+      err.statusCode = 400;
+      err.code = "INVALID_MOVIE_ID";
+      return next(err);
     }
 
-    //=== MODELS === 
-
-    const stats = await ReviewModel.getMovieReviewStats(movieId);
+    //=== MODELS ===
+    const reviewModel = getReviewModel();
+    const stats = await reviewModel.getReviewsStatistics(movieId);
 
     if (stats === null) {
-
       return res.status(200).json({
         success: true,
         movieId: movieId,
         hasReviews: false,
-        message:
-          "Nessun recensione",
+        message: "Nessun recensione",
         stats: {
           totalReviews: 0,
           averageScore: null,
@@ -124,19 +142,11 @@ async function getMovieReviewStats(req, res) {
       message: `Statistiche calcolate da ${stats.totalReviews} recensioni`,
       stats: stats,
     });
-
-  } catch (error) {
-    console.error(
-      `❌ Errore durante calcolo statistiche per ID ${req.params.movieId}:`,
-      error.message
-    );
-
-    res.status(500).json({
-      success: false,
-      error: "Errore interno del server durante il calcolo delle statistiche",
-      code: "INTERNAL_SERVER_ERROR",
-      movieId: req.params.movieId,
-    });
+  } catch (err) {
+    err.myMessage = "errore in reviewController -> getMovieReviewStats";
+    err.statusCode = 500;
+    err.code = "MODEL_ERROR";
+    return next(err);
   }
 }
 

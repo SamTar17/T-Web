@@ -1,5 +1,5 @@
 
-const IdGenerator = require('./IdGenerator')
+const uniqueTimestampGenerator = require('./UniqueTimestampGenerator')
 const ChatMessageToMongoBD = require('./ChatMessageToMongoDB')
 const axios = require('axios')
 
@@ -8,7 +8,7 @@ class ChatHandler {
     (this.connectionManager = connectionManager), (this.io = io);
 
     // === PRIVATE DEPENDENCIES ===
-    this.idGenerator = new IdGenerator()
+    this.uniqueTimestampGenerator = new uniqueTimestampGenerator()
     this.chatMessageToMongoBD = new ChatMessageToMongoBD()
   
   }
@@ -179,8 +179,7 @@ class ChatHandler {
       userName: userName,
       message: message,
       roomName: roomName,
-      timestamp: new Date().toISOString(),
-      messageId: this.idGenerator.generateMessageId(),
+      uniqueTimestamp: this.uniqueTimestampGenerator.generateTimestamp(),
     };
 
     // Broadcasting Socket.io nativo a tutta la room

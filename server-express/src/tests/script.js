@@ -114,7 +114,7 @@
             // Ricezione messaggi
             socket.on('room_message_received', (data) => {
                 addLog(`💬 [${data.roomName}] ${data.userName}: ${data.message}`, 'success');
-                addLog(`🆔 Message ID: ${data.messageId}`, 'info');
+                addLog(`🆔 Message ID: ${data.uniqueTimestamp}`, 'info');
             });
 
             // Gestione errori generici

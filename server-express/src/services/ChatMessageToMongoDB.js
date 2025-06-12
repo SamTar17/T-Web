@@ -49,7 +49,7 @@ class ChatMessageToMongoBD {
         timeout: this.requestTimeout
       });
       
-      console.log(`💾 Messaggio ${messageData.messageId} salvato direttamente`);
+      console.log(`💾 Messaggio ${messageData.uniqueTimestamp} salvato direttamente`);
       
     } catch (error) {
       console.error(`❌ Errore salvataggio diretto: ${error.message}`);
@@ -57,7 +57,7 @@ class ChatMessageToMongoBD {
       // CRITICAL: Switch to recovery mode
       this._activateRecoveryMode();
       this._addToQueue(messageData);
-      console.log(`📦 Messaggio ${messageData.messageId} aggiunto alla queue dopo fallimento`);
+      console.log(`📦 Messaggio ${messageData.uniqueTimestamp} aggiunto alla queue dopo fallimento`);
     }
   }
 
@@ -138,12 +138,12 @@ class ChatMessageToMongoBD {
         
         successCount++;
 
-        console.log(`💾 Queue flush: salvato ${queuedMessage.messageData.messageId}`);
+        console.log(`💾 Queue flush: salvato ${queuedMessage.messageData.uniqueTimestamp}`);
         
       } catch (error) {
         failCount++;
         this.stats.failedMessages++;
-        console.error(`❌ Queue flush: fallito ${queuedMessage.messageData.messageId} - ${error.message}`);
+        console.error(`❌ Queue flush: fallito ${queuedMessage.messageData.uniqueTimestamp} - ${error.message}`);
         this.mode = 'recovery'
         // Se anche il flush fallisce, rimani in recovery mode
         console.log('❌ Flush fallito - rimango in recovery mode');
@@ -189,7 +189,7 @@ class ChatMessageToMongoBD {
     // Safety: limite queue per evitare memory leak
     if (this.messageQueue.length > this.maxQueueSize) {
       const removed = this.messageQueue.shift(); // FIFO: rimuovi il più vecchio
-      console.warn(`⚠️ Persistence queue overflow - rimosso messaggio ${removed.messageData.messageId}`);
+      console.warn(`⚠️ Persistence queue overflow - rimosso messaggio ${removed.messageData.uniqueTimestamp}`);
     }
   }
 
