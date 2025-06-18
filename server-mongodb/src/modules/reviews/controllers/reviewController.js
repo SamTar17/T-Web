@@ -25,10 +25,14 @@ async function getReviewsByMovieId(req, res) {
     const movieId = parseInt(req.params.movieId);
 
     if (isNaN(movieId) || movieId <= 0) {
-      const err = new Error("ID film non valido");
-      err.statusCode = 400;
-      err.code = "INVALID_MOVIE_ID";
-      return next(err); // Passo l'errore al middleware
+      console.error("errore in getReviewsByMovieID, movieID non valido");
+
+      return res.status(400).json({
+        success: false,
+        error: " movieID non valido",
+        message: "errore in getReviewsByMovieID, movieID non valido",
+        movieId: movieId,
+      });
     }
 
     // === VALIDAZIONE PARAMETRI DI PAGINAZIONE ===
@@ -70,7 +74,7 @@ async function getReviewsByMovieId(req, res) {
       });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       reviews: reviewsById.reviews,
       pagination: {
@@ -84,10 +88,12 @@ async function getReviewsByMovieId(req, res) {
       message: `${reviewsById.reviews.length} recensioni trovate`,
     });
   } catch (err) {
-    err.myMessage = "errore in reviewController -> getReviewsByMovieId";
-    err.statusCode = 500;
-    err.code = "MODEL_ERROR";
-    return next(err);
+    console.error("errore in getReviewsByMovieID,");
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+      message: "errore in getReviewsByMovieID",
+    });
   }
 }
 
@@ -104,10 +110,14 @@ async function getMovieReviewStats(req, res) {
     const movieId = parseInt(req.params.movieId);
 
     if (isNaN(movieId) || movieId <= 0) {
-      const err = new Error("ID film non valido");
-      err.statusCode = 400;
-      err.code = "INVALID_MOVIE_ID";
-      return next(err);
+      console.error("errore in getReviewsByMovieID, movieID non valido");
+
+      return res.status(400).json({
+        success: false,
+        error: " movieID non valido",
+        message: "errore in getReviewsByMovieID, movieID non valido",
+        movieId: movieId,
+      });
     }
 
     //=== MODELS ===
@@ -143,10 +153,12 @@ async function getMovieReviewStats(req, res) {
       stats: stats,
     });
   } catch (err) {
-    err.myMessage = "errore in reviewController -> getMovieReviewStats";
-    err.statusCode = 500;
-    err.code = "MODEL_ERROR";
-    return next(err);
+    console.error("errore in getMovieReviewStats,");
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+      message: "errore in getMovieReviewStats",
+    });
   }
 }
 

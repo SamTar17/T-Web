@@ -10,22 +10,26 @@ async function saveMessage(req, res) {
   try {
     //=== VALIDAZIONE MESSAGGIO
     const validationError = _validateMessageBody(req.body);
-    if (validationError) return next(validationError);
+    if (validationError) {
+      return res.status(400).json(validationError);
+    }
 
     const Message = getMessageModel();
     await Message.saveMessage(req.body);
 
     console.log(`✅ Messaggio salvato`);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       messageId: req.body.uniqueTimestamp,
     });
   } catch (err) {
-    err.myMessage = "errore in chatController -> saveMessage";
-    err.statusCode = 500;
-    err.code = "MODEL_ERROR";
-    return next(err);
+    console.error("errore in chatController -> saveMessage");
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+      message: "errore in chatController -> saveMessage",
+    });
   }
 }
 
@@ -35,13 +39,16 @@ async function saveMessage(req, res) {
  * @param {Object} req - Express request con roomName nei params
  * @param {Object} res - Express response
  */
-async function getLatestMessages(req, res,next) {
+async function getLatestMessages(req, res, next) {
   try {
     if (typeof req.params.roomName !== "string") {
-      const err = new Error("RoomName non valido");
-      err.status = 400;
-      err.code = "INVALID_INPUT";
-      return next(err);
+      console.error("errore in getLatestMessages, roomName non valido");
+      return res.status(400).json({
+        success: false,
+        error: "RoomName non valido",
+        message: "errore in getLatestMessages, roomName non valido",
+        roomName: req.params.roomName,
+      });
     }
 
     const roomName = req.params.roomName;
@@ -62,7 +69,7 @@ async function getLatestMessages(req, res,next) {
       });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       roomName: roomName,
       message: results.messages,
@@ -70,11 +77,14 @@ async function getLatestMessages(req, res,next) {
       beforeUniqueTimestamp: results.pagination.beforeUniqueTimestamp,
       page: results.pagination.page,
     });
+    
   } catch (err) {
-    err.myMessage = "errore in chatController -> getLatestMessages";
-    err.statusCode = 500;
-    err.code = "MODEL_ERROR";
-    return next(err);
+    console.error("errore in chatController -> getLatestMessages");
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+      message: "errore in chatController -> getLatestMessages",
+    });
   }
 }
 
@@ -84,10 +94,10 @@ async function getLatestMessages(req, res,next) {
  * @param {Object} req - Express request con roomName e timestamp nei params
  * @param {Object} res - Express response
  */
-async function getMessagesBefore(req, res,next) {
+async function getMessagesBefore(req, res, next) {
   try {
     const validationError = _validatebeforeMessageParams(req);
-    if (validationError) return next(validationError);
+    if (validationError) return res(400).json(validationError);
 
     const { roomName, timestamp } = req.params;
     const Message = getMessageModel();
@@ -111,17 +121,20 @@ async function getMessagesBefore(req, res,next) {
       count: messages.length,
     });
   } catch (err) {
-    err.myMessage = "errore in chatController -> getMessagesBefore";
-    err.statusCode = 500;
-    err.code = "MODEL_ERROR";
-    return next(err);
+    console.error("errore in chatController -> getMessagesBefore");
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+      message: "errore in chatController -> getMessagesBefore",
+    });
   }
 }
 
-async function saveRoom(req, res,next) {
+async function saveRoom(req, res, next) {
   try {
     const validationError = _validateRoomData(req.body);
-    if (validationError) return next(validationError);
+
+    if (validationError) return res.status(400).json(validationError);
 
     const Room = getRoomModel();
     await Room.saveRoom(req.body);
@@ -133,14 +146,16 @@ async function saveRoom(req, res,next) {
       room: req.body.roomName,
     });
   } catch (err) {
-    err.myMessage = "errore in chatController -> saveRoom";
-    err.statusCode = 500;
-    err.code = "MODEL_ERROR";
-    return next(err);
+    console.error("errore in chatController -> getLatestMessages");
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+      message: "errore in chatController -> getLatestMessages",
+    });
   }
 }
 
-async function getAllRooms(req, res,next) {
+async function getAllRooms(req, res, next) {
   try {
     const Room = getRoomModel();
     const rooms = await Room.getAllRooms();
@@ -152,146 +167,201 @@ async function getAllRooms(req, res,next) {
         rooms: [],
       });
     }
-
+    console.log(rooms);
     res.status(200).json({
       success: true,
-      roomName: roomName,
       rooms: rooms,
     });
   } catch (err) {
-    err.myMessage = "errore in chatController -> getAllRooms";
-    err.statusCode = 500;
-    err.code = "MODEL_ERROR";
-    return next(err);
+    console.error("errore in chatController -> getAllRooms");
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+      message: "errore in chatController -> getAllRooms",
+    });
   }
 }
 
-async function updateActivity(req, res,next) {
+async function updateActivity(req, res, next) {
   try {
     if (
       typeof req.params.roomName !== "string" ||
       req.params.roomName.trim() === ""
     ) {
-      const err = new Error("roomName non valido o mancante");
-      err.status = 400;
-      err.code = "INVALID_INPUT";
-      return next(err);
+      return res.status(400).json({
+        success: false,
+        error: "RoomName non valido",
+        message: "errore in getLatestMessages, roomName non valido",
+        roomName: req.params.roomName,
+      });
     }
 
     const Room = getRoomModel();
     const activeRoom = req.params.roomName;
 
-    await Room.updateActivity(activeRoom);
+    const response = await Room.updateActivity(activeRoom);
+    if (response === null) {
+      return res.status(404).json({
+        success: false,
+        error: "RoomName non trovato",
+        message: "Attività stanza non aggiornata",
+        roomName: req.params.roomName,
+      });
+    }
 
     return res.json({ message: "Attività stanza aggiornata" });
   } catch (err) {
-    err.myMessage = "errore in chatController -> updateActivity";
-    err.statusCode = 500;
-    err.code = "MODEL_ERROR";
-    return next(err);
+    console.error("errore in chatController -> updateActivity");
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+      message: "errore in chatController -> updateActivity",
+    });
   }
 }
 
 function _validateMessageBody(body) {
   if (!body) {
-    const err = new Error("Corpo della richiesta mancante");
-    err.status = 400;
-    err.code = "INVALID_INPUT";
-    return err;
+    const errorResponse = {
+      status: 400,
+      code: "INVALID_INPUT",
+      message: "Corpo della richiesta mancante",
+    };
+
+    return errorResponse;
   }
 
   if (
     typeof body.uniqueTimestamp !== "string" ||
     body.uniqueTimestamp.trim() === ""
   ) {
-    const err = new Error("uniqueTimestamp mancante o non valido");
-    err.status = 400;
-    err.code = "INVALID_INPUT";
-    return err;
+    const errorResponse = {
+      status: 400,
+      code: "INVALID_INPUT",
+      message: "uniqueTimestamp mancante o non valido",
+    };
+
+    return errorResponse;
   }
 
   const timestampPattern = /^\d+_\d{3}$/;
   if (!timestampPattern.test(body.uniqueTimestamp)) {
-    const err = new Error("Formato uniqueTimestamp non valido");
-    err.status = 400;
-    err.code = "INVALID_INPUT";
-    return err;
+    const errorResponse = {
+      status: 400,
+      code: "INVALID_INPUT",
+      message: "Formato uniqueTimestamp non valido",
+    };
+
+    return errorResponse;
   }
 
   if (typeof body.text !== "string" || body.text.trim() === "") {
-    const err = new Error("Testo del messaggio mancante o non valido");
-    err.status = 400;
-    err.code = "INVALID_INPUT";
-    return err;
+    const errorResponse = {
+      status: 400,
+      code: "INVALID_INPUT",
+      message: "Testo del messaggio mancante o non valido",
+    };
+
+    return errorResponse;
   }
 
   if (typeof body.author !== "string" || body.author.trim() === "") {
-    const err = new Error("Autore mancante o non valido");
-    err.status = 400;
-    err.code = "INVALID_INPUT";
-    return err;
+    const errorResponse = {
+      status: 400,
+      code: "INVALID_INPUT",
+      message: "Autore mancante o non valido",
+    };
+
+    return errorResponse;
   }
 
   return null; // Nessun errore
 }
+
 function _validatebeforeMessageParams(req) {
   const { roomName, uniqueTimestamp } = req.params;
 
   if (typeof roomName !== "string" || roomName.trim() === "") {
-    const err = new Error("roomName non valido o mancante");
-    err.status = 400;
-    err.code = "INVALID_INPUT";
-    return err;
+    const errorResponse = {
+      status: 400,
+      code: "INVALID_INPUT",
+      message: "roomName non valido o mancante",
+    };
+
+    return errorResponse;
   }
 
   if (typeof uniqueTimestamp !== "string" || uniqueTimestamp.trim() === "") {
-    const err = new Error("uniqueTimestamp mancante o non valido");
-    err.status = 400;
-    err.code = "INVALID_INPUT";
-    return err;
+    const errorResponse = {
+      status: 400,
+      code: "INVALID_INPUT",
+      message: "uniqueTimestamp mancante o non valido",
+    };
+
+    return errorResponse;
   }
 
   const timestampPattern = /^\d+_\d{3}$/;
   if (!timestampPattern.test(uniqueTimestamp)) {
-    const err = new Error("Formato uniqueTimestamp non valido");
-    err.status = 400;
-    err.code = "INVALID_INPUT";
-    return err;
+    ù;
+
+    const errorResponse = {
+      status: 400,
+      code: "INVALID_INPUT",
+      message: "Formato uniqueTimestamp non valido",
+    };
+
+    return errorResponse;
   }
 
   return null; // Nessun errore
 }
-function _validateRoomData(roomData) {
 
-  if (typeof roomData.roomName !== "string" || roomData.roomName.trim() === "") {
-    const err = new Error("roomName mancante o non valido");
-    err.status = 400;
-    err.code = "INVALID_INPUT";
-    return err;
+function _validateRoomData(roomData) {
+  if (
+    typeof roomData.roomName !== "string" ||
+    roomData.roomName.trim() === ""
+  ) {
+    const errorResponse = {
+      status: 400,
+      code: "INVALID_INPUT",
+      message: "roomName mancante o non valido",
+    };
+
+    return errorResponse;
   }
 
   if (typeof roomData.creator !== "string" || roomData.creator.trim() === "") {
-    const err = new Error("creator mancante o non valido");
-    err.status = 400;
-    err.code = "INVALID_INPUT";
-    return err;
+    const errorResponse = {
+      status: 400,
+      code: "INVALID_INPUT",
+      message: "creator mancante o non valido",
+    };
+
+    return errorResponse;
   }
 
   if (typeof roomData.topic !== "string" || roomData.topic.trim() === "") {
-    const err = new Error("topic mancante o non valido");
-    err.status = 400;
-    err.code = "INVALID_INPUT";
-    return err;
+    const errorResponse = {
+      status: 400,
+      code: "INVALID_INPUT",
+      message: "topic mancante o non valido",
+    };
+
+    return errorResponse;
   }
 
   if (
     !roomData.last_activity ||
     isNaN(new Date(roomData.last_activity).getTime())
   ) {
-    const err = new Error("last_activity mancante o non è una data valida");
-    err.status = 400;
-    err.code = "INVALID_INPUT";
-    return err;
+    const errorResponse = {
+      status: 400,
+      code: "INVALID_INPUT",
+      message: "last_activity mancante o non è una data valida",
+    };
+
+    return errorResponse;
   }
 
   return null; // Tutto ok

@@ -36,7 +36,7 @@ class MovieController:
                     'movie_id': movie_id
                 }, 400
             
-            if movie_id <= 0:
+            if movie_id < 0:
                 return {
                     'success': False,
                     'error': 'ID film deve essere un numero positivo',
@@ -140,7 +140,6 @@ class MovieController:
         """
         try:
             # === VALIDAZIONE E PULIZIA FILTRI ===
-            print('raw_filters', filters_raw)
             # Il controller si occupa di validare e pulire tutti i parametri
             clean_filters = MovieController._validate_and_clean_filters(filters_raw)
             print('clean_filters', clean_filters)
@@ -443,6 +442,7 @@ class MovieController:
         # === FORMATTAZIONI COMPLESSE ===
         
         actors = {}
+        
         for actor in movie_obj.actors:
             actor_name = actor.actor
             role = actor.role if actor.role else ""
@@ -494,6 +494,7 @@ class MovieController:
         result['releases'] = releases
         
         # === LISTE SEMPLICI ===
+        # obj movie -> movie -> movie.genres (join con tabella genres) -> genre --> genre.genre --> action o drama
         
         # Questi sono semplici liste di stringhe
         result['genres'] = [genre.genre for genre in movie_obj.genres]

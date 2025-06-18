@@ -67,8 +67,7 @@ roomSchema.statics.updateActivity = async function (roomName) {
       { roomName: roomName.toLowerCase() },
       { $set: { last_activity: new Date() } }
     );
-
-    if (!updatedRoom) {
+    if (updatedRoom.matchedCount === 0) {
       console.warn(
         `updateActivity ->  Stanza non trovata con nome: ${roomName}`
       );

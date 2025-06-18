@@ -8,15 +8,16 @@ const createSocketServer = require("./utils/socketServerFactory");
 //const ChatHandler = require("./services/ChatHandler");
 const errorHandler = require("./middleware/errorHandler");
 const movieRoutes = require("./routes/moviesRoutes");
+const roomRoutes =  require("./routes/roomRoutes")
 const gracefulShutdown =  require("./utils/gracefulShutdown");
 
 //================================================
-
 
 const app = express();
 const server = http.createServer(app);
 
 //========= SETUP E CONFIGURAZIONI =======
+
 configureMiddleware(app);
 
 const io = createSocketServer(server);
@@ -33,7 +34,7 @@ io.on("connection", (clientSocket) => {
 });
 
 app.use("/api", movieRoutes);
-
+app.use('/api',roomRoutes)
 app.use(errorHandler);
 
 process.on("SIGINT", () => gracefulShutdown(server, io));

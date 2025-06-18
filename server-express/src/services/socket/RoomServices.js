@@ -9,9 +9,6 @@ class RoomService {
 
   }
 
-  /**
-   * Crea nuova room su MongoDB
-   */
   async createRoom(roomData) {
     try {
       console.log(`🎬 Creazione room: ${roomData.roomName}`);
@@ -21,8 +18,7 @@ class RoomService {
       console.log(`✅ Room ${roomData.roomName} creata su MongoDB- status : ${response.status}`);
      
     } catch (error) {
-      console.error(`❌ Errore creazione room ${roomData.roomName}:`, error.message);
-      throw new Error(`Room creation failed: ${error.message}`);
+      throw error;
     }
   }
 
@@ -40,8 +36,7 @@ class RoomService {
       return response.data;
       
     } catch (error) {
-      console.error('❌ Errore recupero lista room:', error.message);
-      return { success: false, error: error.message, rooms: [] };
+      throw error;
     }
   }
 
@@ -58,8 +53,7 @@ class RoomService {
       return { exists: true, room: response.data };
       
     } catch (error) {
-      console.log(`❌ Room ${roomName} non trovata: ${error.message}`);
-      return { exists: false, error: error.message };
+      throw error;
     }
   }
 
@@ -76,8 +70,7 @@ class RoomService {
       return response.data;
       
     } catch (error) {
-      console.error(`❌ Errore recupero info room ${roomName}:`, error.message);
-      return { success: false, error: error.message };
+      throw error;
     }
   }
   
@@ -101,9 +94,7 @@ class RoomService {
       return response.data;
       
     } catch (error) {
-      console.error(`❌ Errore aggiornamento activity room ${roomName}:`, error.message);
-      // Non bloccare se questo fallisce
-      return { success: false, error: error.message };
+      throw error;
     }
   }
 
@@ -118,21 +109,9 @@ class RoomService {
       
       console.log(`✅ Room ${roomName} cancellata da MongoDB`);
       return response.data;
-      
     } catch (error) {
-      console.error(`❌ Errore cancellazione room ${roomName}:`, error.message);
-      throw new Error(`Room deletion failed: ${error.message}`);
+      throw error;
     }
-  }
-
-  /**
-   * Ottieni statistiche room
-   */
-  getStats() {
-    return {
-      service: 'RoomService',
-      proxyAvailable: !!this.proxyService
-    };
   }
 }
 

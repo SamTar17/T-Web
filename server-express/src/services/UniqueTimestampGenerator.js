@@ -4,7 +4,7 @@ class UniqueTimestampGenerator {
         this.counter = 0;
     }
 
-    generateTimestamp() {
+    generateId() {
         
         const currentTimestamp = Date.now();
         if (currentTimestamp === this.lastTimeStamp) {

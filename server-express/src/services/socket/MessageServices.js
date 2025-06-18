@@ -1,13 +1,10 @@
-/**
- * MESSAGE SERVICE - Gestione messaggi (estratto da ChatHandler)
- */
-const { uniqueTimestampGenerator } = require("../utils/UniqueTimestampGenerator");
-
 class MessageService {
-  constructor(proxyService) {
+  constructor(proxyService, UniqueTimestampGenerator) {
     this.proxyService = proxyService;
+    this.uniqueTimestampGenerator = UniqueTimestampGenerator;
 
-    // === PERSISTENCE STATE ===
+    // === RECOVERY ATTRIBUTI ===
+    
     this.mode = "normal"; // 'normal' | 'recovery' | 'flushing'
     this.messageQueue = []; // Queue per messaggi in recovery
     this.recoveryTimer = null; // Timer per tentare riconnessione
@@ -17,21 +14,39 @@ class MessageService {
   }
 
   async saveMessage(messageData) {
-    const formattedMessage = this._formatMessage(messageData);
-    const isValid = this._validateMessage(formattedMessage);
-    if (isValid.isValid) {
-      if (this.mode === "normal" || this.mode === "flushing") {
+    try {
+      //validazione di messageData
+      const isValidMessageData = this._validateMessageData(messageData);
+
+      if (!isValidMessageData.isValid) {
+        //fallisce per qualche ragione la validazione del messaggio
+        // devo costruire un errore che verrà passato al middleware
+
+        error = {
+          name: "ValidationError",
+          status: 400,
+          message: "Errore nella validazione messageData in saveMessage",
+          additionalDetails: isValidMessageData.errors,
+        };
+
+        throw error;
+      }
+
+      //formatto il messaggio per il salvataggio
+
+      const formattedMessage = this._formatMessage(messageData);
+
+      if (this.mode == "normal" || this.mode === "flushing") {
         await this._saveDirectToMongoDB(formattedMessage);
       } else {
-        console.warn(`+++ Recovery mode attivo ! mess aggiunto alla queue +++`);
+        console.warn(
+          `+++ Recovery mode attivo -> mess aggiunto alla queue +++`
+        );
         this._addToQueue(formattedMessage);
       }
-    } else {
-      console.error(
-        "++ ERRORE NEL SALVATAGGIO MESSAGGIO, FORMATO NON VALIDO",
-        isValid.errors
-      );
-      return;
+    } catch (error) {
+      console.error("errore in message services -> saveMessage");
+      throw error;
     }
   }
 
@@ -44,41 +59,42 @@ class MessageService {
         "GET"
       );
 
-      return response.data
+      return response.data;
 
     } catch (error) {
       console.error(
-        `❌ Errore getMessagesFromMongoDB room ${roomName}:`,
+        `--- Errore getMessagesFromMongoDB room ${roomName}: --- `,
         error.message
       );
-      return { success: false, error: error.message, messages: [] };
+
+      throw error;
     }
   }
 
-  async getMessagesRoomBefore(roomName,beforeTimestamp) {
+  async getMessagesRoomBefore(roomName, beforeTimestamp) {
     try {
-      console.log(`📥 Recupero messaggi room ${roomName} da MongoDB...`);
+      console.log(`--- Recupero precedenti messaggi room ${roomName} da MongoDB... ---`);
 
       const response = await this.proxyService.callMongoDB(
         `/api/messages/${roomName}/before/${beforeTimestamp}`,
         "GET"
       );
 
-      return response.data
+      return response.data;
 
     } catch (error) {
       console.error(
-        `❌ Errore getMessagesRoomBefore room ${roomName} uts ${beforeTimestamp}:`,
+        `-- Errore getMessagesRoomBefore room ${roomName} uts ${beforeTimestamp}:`,
         error.message
       );
-      return { success: false, error: error.message, message: []};
+     throw error;
     }
-  }  
+  }
 
   _formatMessage(messageData) {
     try {
       const formattedMessage = {
-        uniqueTimestamp: new uniqueTimestampGenerator(),
+        uniqueTimestamp: this.uniqueTimestampGenerator.generateId(),
         roomName: messageData.roomName,
         userName: messageData.userName,
         message: messageData.message.trim(),
@@ -90,7 +106,7 @@ class MessageService {
     }
   }
 
-  _validateMessage(messageData) {
+  _validateMessageData(messageData) {
     const errors = [];
 
     if (!messageData.roomName || messageData.roomName.trim().length === 0) {
@@ -132,7 +148,6 @@ class MessageService {
     } catch (error) {
       console.error(`❌ Errore salvataggio diretto: ${error.message}`);
 
-      // switcho alla recovery mode
       this._activateRecoveryMode();
       this._addToQueue(messageData);
       console.log(
@@ -141,13 +156,15 @@ class MessageService {
     }
   }
 
+//======== RECOVERY LOGICA ============
+
   _activateRecoveryMode() {
     if (this.mode === "recovery") {
-      return; // Già in recovery mode
+      return; //già in recovery mode
     }
 
-    console.log("🚨 ATTIVAZIONE MODALITÀ RECOVERY PERSISTENCE");
-    console.log("📦 Tutti i nuovi messaggi andranno in queue locale");
+    console.warn("🚨 ATTIVAZIONE MODALITÀ RECOVERY PERSISTENCE");
+    console.warn("📦 Tutti i nuovi messaggi andranno in queue locale");
 
     this.mode = "recovery";
     this._startRecoveryTimer();
@@ -157,11 +174,6 @@ class MessageService {
     if (this.recoveryTimer) {
       return;
     }
-    console.log(
-      `🔄 Avvio persistence recovery timer (ogni ${
-        this.recoveryInterval / 1000
-      }s)`
-    );
 
     this.recoveryTimer = setInterval(async () => {
       await this._attemptRecovery();
@@ -169,89 +181,77 @@ class MessageService {
   }
 
   async _attemptRecovery() {
-    console.log("🔍 Persistence: tentativo recovery MongoDB...");
-
+    console.log("++++ tentativo recovery MongoDB... +++");
     try {
       // Test con health check
       const response = await this.proxyService.callMongoDB(
         "/api/health",
-        "GET");
+        "GET"
+      );
 
       if (response.status === 200) {
-        console.log("✅ MongoDB disponibile - avvio flush queue");
+        console.log("+++ MongoDB disponibile - avvio flush queue");
         await this._executeRecovery();
       } else {
-        console.log("⚠️ MongoDB health check non OK - continuo recovery mode");
+        console.log("⚠️ continuo recovery mode");
       }
     } catch (error) {
       console.log(
-        `❌ Recovery attempt failed: ${error.message} - riprovo tra ${
+        `Recovery fallita: ${error.message} - riprovo tra ${
           this.recoveryInterval / 1000
         }s`
       );
+      //credo non serva far risalire l erroe uqi
     }
   }
 
   async _executeRecovery() {
-    console.log("sono in modalità flushing +++");
+    console.log("+++ sono in modalità flushing +++");
     this.mode = "flushing";
     const queueSize = this.messageQueue.length;
-    console.log(`🔄 Iniziando flush di ${queueSize} messaggi dalla queue...`);
+    console.log(
+      `+++ Iniziando flush di ${queueSize} messaggi dalla queue... +++ \n`
+    );
     let successCount = 0;
-    let failCount = 0;
 
     // Processo la queue in modo sequenziale per evitare overload
-    for (const queuedMessage of this.messageQueue) {
+
+    while (this.messageQueue.length > 0) {
+      const queuedMessage = this.messageQueue[0];
       try {
-        await _saveDirectToMongoDB(queuedMessage)
+        await _saveDirectToMongoDB(queuedMessage);
         successCount++;
-        console.log(
-          `💾 Queue flush: salvato ${queuedMessage.messageData.uniqueTimestamp}`
-        );
+        this.messageQueue.shift(); // FIFO
       } catch (error) {
-        failCount++;
-        this.stats.failedMessages++;
         console.error(
-          `❌ Queue flush: fallito ${queuedMessage.messageData.uniqueTimestamp} - ${error.message}`
+          `---- Queue flush: fallito ${queuedMessage.messageData.uniqueTimestamp} - ${error.message} ---- \n`
         );
         this.mode = "recovery";
-        console.log("❌ Flush fallito - rimango in recovery mode");
-        return;
+        console.log(" Flush fallito -switcho da flushing a recovery");
+        return; //esco dal while loop e dalla funzione
       }
     }
 
-    console.log(
-      `✅ Persistence recovery completato: ${successCount} successi, ${failCount} fallimenti`
-    );
+    console.log(`✅ Persistence recovery completato: ${successCount} successi`);
+
     this.mode = "normal"; // Torna normal mode
     this._stopRecoveryTimer(); // Ferma timer
     this.messageQueue = []; // Svuota queue
 
-    console.log("🟢 PERSISTENCE MODALITÀ NORMAL RIPRISTINATA");
+    console.log("🟢 MODALITÀ NORMAL RIPRISTINATA 🟢");
   }
 
   _stopRecoveryTimer() {
     if (this.recoveryTimer) {
       clearInterval(this.recoveryTimer);
       this.recoveryTimer = null;
-      console.log("🛑 Persistence recovery timer fermato");
     }
   }
 
   _addToQueue(messageData) {
-    const queueEntry = {
-      messageData: messageData,
-      queuedAt: new Date().toISOString(),
-      attempts: 0,
-    };
+    this.messageQueue.push(messageData);
 
-    this.messageQueue.push(queueEntry);
-
-    console.log(
-      `📦 Persistence queue size: ${this.messageQueue.length} messaggi`
-    );
-
-    // Safety: limite queue per evitare memory leak
+    //evitare memory leak
     if (this.messageQueue.length > this.maxQueueSize) {
       const removed = this.messageQueue.shift(); // FIFO: rimuovi il più vecchio
       console.warn(

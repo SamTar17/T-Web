@@ -11,3 +11,7 @@ non ho aggiunto un middleware di controllo validation nei microservizi ma lo agg
 installata npm install express-validator che serve proprio per questo nel server centrale. una volta capita la logica possiamo estenderla anche ai microservizi
 
 express-validator salva ggli errori nella validazione dentro l oggetto request e puoi accedere a questi errori con validationResult()
+
+migliorare il config del server flask 
+
+ho fatto due chiamate diverse per le stat e per la collezione delle reviews forse è meglio farne una 
